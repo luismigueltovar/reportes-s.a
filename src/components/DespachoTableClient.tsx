@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 type Orden = {
   orden_trabajo: string;
@@ -12,6 +13,11 @@ type Orden = {
   id_tecnico: string;
   fecha_asignacion?: string;
   [key: string]: unknown; // por si hay más campos
+};
+
+type Tecnico = {
+  id_usuario: string;
+  nombre: string;
 };
 
 const getDaysSLA = (fecha_asignacion?: string) => {
@@ -30,6 +36,24 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
   const [fechaFilter, setFechaFilter] = useState('Todas');
   const [tecnicoFilter, setTecnicoFilter] = useState('Todos');
   const [selectedOrdenes, setSelectedOrdenes] = useState<string[]>([]);
+  const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
+  const [selectedTecnicoId, setSelectedTecnicoId] = useState('');
+
+  // Fetch real technicians from perfiles table
+  useEffect(() => {
+    const fetchTecnicos = async () => {
+      const { data, error } = await supabase
+        .from('perfiles')
+        .select('id_usuario, nombre')
+        .eq('rol', 'Técnico')
+        .order('nombre', { ascending: true });
+
+      if (!error && data) {
+        setTecnicos(data);
+      }
+    };
+    fetchTecnicos();
+  }, []);
 
   // Extraer opciones únicas para los selectores
   const localidadesUnicas = useMemo(() => {
@@ -42,10 +66,17 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
     return Array.from(new Set(ests)).sort();
   }, [initialData]);
 
-  const tecnicosUnicos = useMemo(() => {
+  // Derive unique technician IDs from orders (for display fallback in table)
+  const tecnicosEnOrdenes = useMemo(() => {
     const techs = initialData.map(o => o.id_tecnico).filter(Boolean);
     return Array.from(new Set(techs)).sort();
   }, [initialData]);
+
+  // Helper: get technician name by id_usuario
+  const getTecnicoNombre = (idUsuario: string) => {
+    const found = tecnicos.find(t => t.id_usuario === idUsuario);
+    return found ? found.nombre : idUsuario;
+  };
 
   // Filtrado reactivo en memoria
   const filteredData = useMemo(() => {
@@ -158,8 +189,8 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
         >
           <option value="Todos">Todos los Técnicos</option>
           <option value="Sin asignar">Sin asignar</option>
-          {tecnicosUnicos.map(tech => (
-            <option key={tech} value={tech}>{tech}</option>
+          {tecnicos.map(tech => (
+            <option key={tech.id_usuario} value={tech.id_usuario}>{tech.nombre}</option>
           ))}
         </select>
       </div>
@@ -229,7 +260,7 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
                     </td>
                     <td className="py-3 px-4">
                       {row.id_tecnico ? (
-                        <p className="text-gray-900 font-medium">{row.id_tecnico}</p>
+                        <p className="text-gray-900 font-medium">{getTecnicoNombre(row.id_tecnico)}</p>
                       ) : (
                         <p className="text-gray-400 text-sm">Sin asignar</p>
                       )}
@@ -262,10 +293,14 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <select className="border border-gray-300 rounded px-4 py-2 bg-white focus:outline-none focus:border-blue-500 text-sm">
+            <select 
+              className="border border-gray-300 rounded px-4 py-2 bg-white focus:outline-none focus:border-blue-500 text-sm"
+              value={selectedTecnicoId}
+              onChange={(e) => setSelectedTecnicoId(e.target.value)}
+            >
               <option value="">Seleccionar técnico para bloque...</option>
-              {tecnicosUnicos.map(tech => (
-                <option key={tech} value={tech}>{tech}</option>
+              {tecnicos.map(tech => (
+                <option key={tech.id_usuario} value={tech.id_usuario}>{tech.nombre}</option>
               ))}
             </select>
             <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition shadow-sm text-sm">
