@@ -1,10 +1,22 @@
 'use client';
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, signOut } = useAuth();
+
+  // Derive display name and initials from user
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario';
+  const initial = displayName.charAt(0).toUpperCase();
+
+  const handleLogout = async () => {
+    await signOut();
+    router.replace('/login');
+  };
 
   return (
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-full flex-shrink-0">
@@ -57,15 +69,18 @@ export default function Sidebar() {
       <div className="border-t border-slate-800 p-4 space-y-4">
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">A</div>
+            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">{initial}</div>
             <div>
-              <p className="text-sm font-medium text-white">Usuario Admin</p>
+              <p className="text-sm font-medium text-white">{displayName}</p>
               <p className="text-xs text-slate-400">Administrador</p>
             </div>
           </div>
           <svg className="w-4 h-4 text-slate-400 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
         </div>
-        <button className="flex items-center gap-3 px-2 text-slate-400 hover:text-white transition-colors w-full text-sm">
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-2 text-slate-400 hover:text-white transition-colors w-full text-sm"
+        >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
           Cerrar sesión
         </button>
