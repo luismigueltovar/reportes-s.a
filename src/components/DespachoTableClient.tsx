@@ -10,7 +10,7 @@ type Orden = {
   localidad: string;
   sector_operativo?: string;
   estado: string;
-  id_tecnico: string;
+  id_tecnico_asignado?: string;
   fecha_asignacion?: string;
   [key: string]: unknown; // por si hay más campos
 };
@@ -68,7 +68,7 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
 
   // Derive unique technician IDs from orders (for display fallback in table)
   const tecnicosEnOrdenes = useMemo(() => {
-    const techs = initialData.map(o => o.id_tecnico).filter(Boolean);
+    const techs = initialData.map(o => o.id_tecnico_asignado).filter(Boolean);
     return Array.from(new Set(techs)).sort();
   }, [initialData]);
 
@@ -110,8 +110,8 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
       // 5. Filtro por Técnico
       const matchesTecnico = 
         tecnicoFilter === 'Todos' ||
-        (tecnicoFilter === 'Sin asignar' && !row.id_tecnico) ||
-        row.id_tecnico === tecnicoFilter;
+        (tecnicoFilter === 'Sin asignar' && !row.id_tecnico_asignado) ||
+        row.id_tecnico_asignado === tecnicoFilter;
 
       return matchesSearch && matchesLocalidad && matchesEstado && matchesFecha && matchesTecnico;
     });
@@ -133,6 +133,33 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
       setSelectedOrdenes([...selectedOrdenes, orden_trabajo]);
     } else {
       setSelectedOrdenes(selectedOrdenes.filter(id => id !== orden_trabajo));
+    }
+  };
+
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  const handleAsignarBloque = async () => {
+    if (!selectedTecnicoId || selectedOrdenes.length === 0) return;
+    setIsAssigning(true);
+
+    try {
+      const { error } = await supabase
+        .from('ordenes')
+        .update({ id_tecnico_asignado: selectedTecnicoId })
+        .in('orden_trabajo', selectedOrdenes);
+
+      if (error) {
+        console.error('Error al asignar órdenes:', error);
+        alert('Hubo un error al asignar las órdenes.');
+      } else {
+        alert('Órdenes asignadas exitosamente.');
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Hubo un error inesperado al asignar.');
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -259,8 +286,8 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
                       })()}
                     </td>
                     <td className="py-3 px-4">
-                      {row.id_tecnico ? (
-                        <p className="text-gray-900 font-medium">{getTecnicoNombre(row.id_tecnico)}</p>
+                      {row.id_tecnico_asignado ? (
+                        <p className="text-gray-900 font-medium">{getTecnicoNombre(row.id_tecnico_asignado as string)}</p>
                       ) : (
                         <p className="text-gray-400 text-sm">Sin asignar</p>
                       )}
@@ -303,8 +330,12 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
                 <option key={tech.id_usuario} value={tech.id_usuario}>{tech.nombre}</option>
               ))}
             </select>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition shadow-sm text-sm">
-              Asignar órdenes en bloque
+            <button 
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition shadow-sm text-sm disabled:opacity-50"
+              onClick={handleAsignarBloque}
+              disabled={isAssigning || !selectedTecnicoId}
+            >
+              {isAssigning ? 'Asignando...' : 'Asignar órdenes en bloque'}
             </button>
           </div>
         </div>
