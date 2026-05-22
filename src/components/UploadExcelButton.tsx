@@ -27,10 +27,10 @@ const normalizeLocalidad = (rawLocalidad: string) => {
   if (!rawLocalidad) return '';
   // Extraer el texto dentro del último par de paréntesis
   const match = rawLocalidad.match(/\(([^)]+)\)[^(]*$/);
-  if (match) {
-    return match[1].trim().toUpperCase();
-  }
-  return rawLocalidad.trim().toUpperCase();
+  let normalized = match ? match[1].trim().toUpperCase() : rawLocalidad.trim().toUpperCase();
+  // Unificar variantes conocidas
+  if (normalized === 'SANTIAGO DE CALI') normalized = 'CALI';
+  return normalized;
 };
 
 export default function UploadExcelButton() {
