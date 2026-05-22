@@ -2,6 +2,8 @@ import { supabase } from '@/lib/supabase';
 import UploadExcelButton from '@/components/UploadExcelButton';
 import UserProfile from '@/components/UserProfile';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 export default async function DashboardPage() {
   // Fetch real data
   const { data: ordenes, error } = await supabase.from('ordenes').select('*');
@@ -49,7 +51,7 @@ export default async function DashboardPage() {
 
   // Agrupar por Técnico (Carga por Técnico)
   const techMap = data.reduce((acc, curr) => {
-    const tech = curr.id_tecnico || 'Sin asignar';
+    const tech = curr.id_tecnico_asignado || 'Sin asignar';
     acc[tech] = (acc[tech] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
