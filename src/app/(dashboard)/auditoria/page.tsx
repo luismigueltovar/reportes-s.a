@@ -6,7 +6,7 @@ export default async function AuditoriaPage() {
     .from('ordenes')
     .select('*')
     .neq('estado', 'Pendiente')
-    .order('fecha_asignacion', { ascending: false });
+    .order('fecha_asignacion_ot', { ascending: false });
 
   return <AuditoriaClient initialData={ordenes || []} error={error} />;
 }

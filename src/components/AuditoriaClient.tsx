@@ -8,8 +8,8 @@ type Orden = {
   orden_trabajo: string;
   contrato: string;
   estado: string;
-  id_tecnico: string;
-  fecha_asignacion?: string;
+  id_tecnico_asignado?: string;
+  fecha_asignacion_ot?: string;
   [key: string]: any;
 };
 
@@ -20,7 +20,7 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
   const [endDate, setEndDate] = useState('');
 
   const tecnicosUnicos = useMemo(() => {
-    const techs = initialData.map(o => o.id_tecnico).filter(Boolean);
+    const techs = initialData.map(o => o.id_tecnico_asignado).filter(Boolean);
     return Array.from(new Set(techs)).sort();
   }, [initialData]);
 
@@ -32,14 +32,14 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
         (row.contrato && row.contrato.toLowerCase().includes(term)) ||
         (row.orden_trabajo && row.orden_trabajo.toLowerCase().includes(term));
       
-      const matchesTecnico = tecnicoFilter === 'Todos los Técnicos' || row.id_tecnico === tecnicoFilter;
+      const matchesTecnico = tecnicoFilter === 'Todos los Técnicos' || row.id_tecnico_asignado === tecnicoFilter;
 
       let matchesDate = true;
-      if (startDate && row.fecha_asignacion) {
-        if (new Date(row.fecha_asignacion) < new Date(startDate)) matchesDate = false;
+      if (startDate && row.fecha_asignacion_ot) {
+        if (new Date(row.fecha_asignacion_ot) < new Date(startDate)) matchesDate = false;
       }
-      if (endDate && row.fecha_asignacion) {
-        if (new Date(row.fecha_asignacion) > new Date(endDate)) matchesDate = false;
+      if (endDate && row.fecha_asignacion_ot) {
+        if (new Date(row.fecha_asignacion_ot) > new Date(endDate)) matchesDate = false;
       }
 
       return matchesSearch && matchesTecnico && matchesDate;
@@ -48,11 +48,11 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
 
   const exportToExcel = () => {
     const exportData = filteredData.map(row => ({
-      'Fecha Asignación': row.fecha_asignacion ? new Date(row.fecha_asignacion).toLocaleDateString() : 'N/A',
+      'Fecha Asignación': row.fecha_asignacion_ot ? new Date(row.fecha_asignacion_ot).toLocaleDateString() : 'N/A',
       'Nº Orden': row.orden_trabajo,
       'Contrato': row.contrato,
       'Estado': row.estado,
-      'Técnico': row.id_tecnico || 'Sin asignar'
+      'Técnico': row.id_tecnico_asignado || 'Sin asignar'
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -161,7 +161,7 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
                 filteredData.map((row) => (
                   <tr key={row.orden_trabajo} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                     <td className="py-4 px-6 text-gray-900">
-                      {row.fecha_asignacion ? new Date(row.fecha_asignacion).toLocaleDateString() : 'N/A'}
+                      {row.fecha_asignacion_ot ? new Date(row.fecha_asignacion_ot).toLocaleDateString() : 'N/A'}
                     </td>
                     <td className="py-4 px-6 font-medium text-gray-900">{row.orden_trabajo}</td>
                     <td className="py-4 px-6 text-gray-500">{row.contrato}</td>
@@ -170,7 +170,7 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
                         {row.estado}
                       </span>
                     </td>
-                    <td className="py-4 px-6 text-gray-600">{row.id_tecnico || 'Sin asignar'}</td>
+                    <td className="py-4 px-6 text-gray-600">{row.id_tecnico_asignado || 'Sin asignar'}</td>
                     <td className="py-4 px-6">
                       <button className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-2 text-sm">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>

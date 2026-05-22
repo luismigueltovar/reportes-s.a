@@ -53,7 +53,7 @@ export default function DespachoTableClient() {
         .from('ordenes')
         .select('*')
         .eq('estado', 'Pendiente')
-        .order('fecha_asignacion', { ascending: false });
+        .order('fecha_asignacion_ot', { ascending: false });
 
       if (error) {
         console.error('Error al cargar órdenes:', error);
