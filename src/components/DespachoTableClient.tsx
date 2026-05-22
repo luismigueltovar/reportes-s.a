@@ -7,11 +7,14 @@ type Orden = {
   orden_trabajo: string;
   contrato: string;
   direccion: string;
+  barrio?: string;
   localidad: string;
-  sector_operativo?: string;
+  descripcion_del_trabajo?: string;
   estado: string;
   id_tecnico_asignado?: string;
-  fecha_asignacion?: string;
+  fecha_asignacion_ot?: string;
+  observacion_solicitud?: string;
+  dias_sla?: number;
   [key: string]: unknown; // por si hay más campos
 };
 
@@ -20,9 +23,9 @@ type Tecnico = {
   nombre: string;
 };
 
-const getDaysSLA = (fecha_asignacion?: string) => {
-  if (!fecha_asignacion) return 0;
-  const asignacion = new Date(fecha_asignacion);
+const getDaysSLA = (fecha_asignacion_ot?: string) => {
+  if (!fecha_asignacion_ot) return 0;
+  const asignacion = new Date(fecha_asignacion_ot);
   const now = new Date();
   const diffTime = now.getTime() - asignacion.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -107,14 +110,14 @@ export default function DespachoTableClient() {
   // Filtrado reactivo en memoria
   const filteredData = useMemo(() => {
     return ordenes.filter(row => {
-      // 1. Filtro por Búsqueda (contrato, orden_trabajo, direccion, sector_operativo)
+      // 1. Filtro por Búsqueda (contrato, orden_trabajo, direccion, barrio)
       const term = searchTerm.toLowerCase();
       const matchesSearch = 
         !term || 
         (row.contrato && row.contrato.toLowerCase().includes(term)) ||
         (row.orden_trabajo && row.orden_trabajo.toLowerCase().includes(term)) ||
         (row.direccion && row.direccion.toLowerCase().includes(term)) ||
-        (row.sector_operativo && row.sector_operativo.toLowerCase().includes(term));
+        (row.barrio && row.barrio.toLowerCase().includes(term));
 
       // 2. Filtro por Localidad
       const matchesLocalidad = localidadFilter === 'Todas' || row.localidad === localidadFilter;
@@ -123,7 +126,7 @@ export default function DespachoTableClient() {
       const matchesEstado = estadoFilter === 'Todos' || row.estado === estadoFilter;
 
       // 4. Filtro por Fecha (SLA)
-      const daysSLA = getDaysSLA(row.fecha_asignacion);
+      const daysSLA = getDaysSLA(row.fecha_asignacion_ot);
       let matchesFecha = true;
       if (fechaFilter === 'Hoy') {
         matchesFecha = daysSLA === 0;
@@ -315,7 +318,7 @@ export default function DespachoTableClient() {
                     <td className="py-3 px-4 font-medium text-gray-900">{row.orden_trabajo}</td>
                     <td className="py-3 px-4">{row.contrato}</td>
                     <td className="py-3 px-4">{row.direccion}</td>
-                    <td className="py-3 px-4">{row.sector_operativo || '-'}</td>
+                    <td className="py-3 px-4">{row.barrio || '-'}</td>
                     <td className="py-3 px-4">{row.localidad}</td>
                     <td className="py-3 px-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${row.estado === 'Pendiente' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' : row.estado === 'Cancelada' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
@@ -324,7 +327,7 @@ export default function DespachoTableClient() {
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       {(() => {
-                        const daysSLA = getDaysSLA(row.fecha_asignacion);
+                        const daysSLA = getDaysSLA(row.fecha_asignacion_ot);
                         const slaColor = daysSLA <= 1 ? 'bg-green-100 text-green-800' : daysSLA === 2 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
                         return (
                           <span className={`inline-block px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${slaColor}`}>

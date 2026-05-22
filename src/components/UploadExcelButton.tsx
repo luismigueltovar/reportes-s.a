@@ -73,14 +73,15 @@ export default function UploadExcelButton() {
         .map(row => ({
           orden_trabajo: String(row['ORDEN TRABAJO']).trim(),
           contrato: String(row['CONTRATO'] || '').trim(),
-          nombre_usuario: String(row['NOMBRE_USUARIO'] || '').trim(),
           direccion: String(row['DIRECCION'] || '').trim(),
+          barrio: String(row['BARRIO'] || row['SECTOR OPERATIVO'] || '').trim(),
           localidad: normalizeLocalidad(String(row['LOCALIDAD'] || '')),
-          sector_operativo: String(row['SECTOR OPERATIVO'] || '').trim(),
-          tipo_trabajo: String(row['TIPO TRABAJO'] || '').trim(),
-          fecha_asignacion: parseExcelDate(row['FECHA_ASIGNACION_OT'] || row['FECHA ASIGNACION']),
+          descripcion_del_trabajo: String(row['DESCRIPCION_DEL_TRABAJO'] || row['TIPO TRABAJO'] || '').trim(),
+          fecha_asignacion_ot: parseExcelDate(row['FECHA_ASIGNACION_OT'] || row['FECHA ASIGNACION']),
           observacion_solicitud: String(row['OBSERVACION_SOLICITUD'] || '').trim(),
+          dias_sla: typeof row['DIAS_SLA'] === 'number' ? row['DIAS_SLA'] : null,
           estado: 'Pendiente',
+          id_tecnico_asignado: null,
         }));
 
       if (formattedData.length === 0) {
@@ -93,7 +94,7 @@ export default function UploadExcelButton() {
       // Consultamos en lotes si son demasiadas, pero Supabase soporta in() con miles de ids
       const { data: existingOrders, error: fetchError } = await supabase
         .from('ordenes')
-        .select('orden_trabajo, id_tecnico, estado')
+        .select('orden_trabajo, id_tecnico_asignado, estado')
         .in('orden_trabajo', ordenesIds);
 
       if (fetchError) throw fetchError;
@@ -107,8 +108,8 @@ export default function UploadExcelButton() {
         if (existing) {
           return {
             ...order,
-            id_tecnico: existing.id_tecnico, // Preservar técnico
-            estado: existing.estado,         // Preservar estado actual
+            id_tecnico_asignado: existing.id_tecnico_asignado, // Preservar técnico
+            estado: existing.estado,                           // Preservar estado actual
           };
         }
         return order;
