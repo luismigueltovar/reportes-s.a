@@ -79,7 +79,6 @@ export default function UploadExcelButton() {
           descripcion_del_trabajo: String(row['DESCRIPCION_DEL_TRABAJO'] || row['TIPO TRABAJO'] || '').trim(),
           fecha_asignacion_ot: parseExcelDate(row['FECHA_ASIGNACION_OT'] || row['FECHA ASIGNACION']),
           observacion_solicitud: String(row['OBSERVACION_SOLICITUD'] || '').trim(),
-          dias_sla: typeof row['DIAS_SLA'] === 'number' ? row['DIAS_SLA'] : null,
           estado: 'Pendiente',
           id_tecnico_asignado: null,
         }));

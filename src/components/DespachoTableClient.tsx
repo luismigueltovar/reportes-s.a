@@ -14,7 +14,6 @@ type Orden = {
   id_tecnico_asignado?: string;
   fecha_asignacion_ot?: string;
   observacion_solicitud?: string;
-  dias_sla?: number;
   [key: string]: unknown; // por si hay más campos
 };
 
@@ -23,7 +22,7 @@ type Tecnico = {
   nombre: string;
 };
 
-const getDaysSLA = (fecha_asignacion_ot?: string) => {
+const calcularDiasSLA = (fecha_asignacion_ot?: string) => {
   if (!fecha_asignacion_ot) return 0;
   const asignacion = new Date(fecha_asignacion_ot);
   const now = new Date();
@@ -126,7 +125,7 @@ export default function DespachoTableClient() {
       const matchesEstado = estadoFilter === 'Todos' || row.estado === estadoFilter;
 
       // 4. Filtro por Fecha (SLA)
-      const daysSLA = getDaysSLA(row.fecha_asignacion_ot);
+      const daysSLA = calcularDiasSLA(row.fecha_asignacion_ot);
       let matchesFecha = true;
       if (fechaFilter === 'Hoy') {
         matchesFecha = daysSLA === 0;
@@ -327,7 +326,7 @@ export default function DespachoTableClient() {
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       {(() => {
-                        const daysSLA = getDaysSLA(row.fecha_asignacion_ot);
+                        const daysSLA = calcularDiasSLA(row.fecha_asignacion_ot);
                         const slaColor = daysSLA <= 1 ? 'bg-green-100 text-green-800' : daysSLA === 2 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
                         return (
                           <span className={`inline-block px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${slaColor}`}>
