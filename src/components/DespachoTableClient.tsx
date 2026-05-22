@@ -29,7 +29,10 @@ const getDaysSLA = (fecha_asignacion?: string) => {
   return Math.max(0, diffDays); // evitar negativos si la fecha es futura
 };
 
-export default function DespachoTableClient({ initialData }: { initialData: Orden[] }) {
+export default function DespachoTableClient() {
+  const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const [loadingOrdenes, setLoadingOrdenes] = useState(true);
+  const [errorOrdenes, setErrorOrdenes] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [localidadFilter, setLocalidadFilter] = useState('Todas');
   const [estadoFilter, setEstadoFilter] = useState('Todos');
@@ -38,6 +41,28 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
   const [selectedOrdenes, setSelectedOrdenes] = useState<string[]>([]);
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
   const [selectedTecnicoId, setSelectedTecnicoId] = useState('');
+
+  // Fetch órdenes pendientes desde Supabase
+  useEffect(() => {
+    const fetchOrdenes = async () => {
+      setLoadingOrdenes(true);
+      setErrorOrdenes(null);
+      const { data, error } = await supabase
+        .from('ordenes')
+        .select('*')
+        .eq('estado', 'Pendiente')
+        .order('fecha_asignacion', { ascending: false });
+
+      if (error) {
+        console.error('Error al cargar órdenes:', error);
+        setErrorOrdenes('No se pudieron cargar las órdenes.');
+      } else {
+        setOrdenes(data || []);
+      }
+      setLoadingOrdenes(false);
+    };
+    fetchOrdenes();
+  }, []);
 
   // Fetch real technicians from perfiles table
   useEffect(() => {
@@ -57,30 +82,31 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
 
   // Extraer opciones únicas para los selectores
   const localidadesUnicas = useMemo(() => {
-    const locs = initialData.map(o => o.localidad).filter(Boolean);
+    const locs = ordenes.map(o => o.localidad).filter(Boolean);
     return Array.from(new Set(locs)).sort();
-  }, [initialData]);
+  }, [ordenes]);
 
   const estadosUnicos = useMemo(() => {
-    const ests = initialData.map(o => o.estado).filter(Boolean);
+    const ests = ordenes.map(o => o.estado).filter(Boolean);
     return Array.from(new Set(ests)).sort();
-  }, [initialData]);
+  }, [ordenes]);
 
   // Derive unique technician IDs from orders (for display fallback in table)
   const tecnicosEnOrdenes = useMemo(() => {
-    const techs = initialData.map(o => o.id_tecnico_asignado).filter(Boolean);
+    const techs = ordenes.map(o => o.id_tecnico_asignado).filter(Boolean);
     return Array.from(new Set(techs)).sort();
-  }, [initialData]);
+  }, [ordenes]);
 
   // Helper: get technician name by id_usuario
-  const getTecnicoNombre = (idUsuario: string) => {
+  const getTecnicoNombre = (idUsuario?: string): string | null => {
+    if (!idUsuario) return null;
     const found = tecnicos.find(t => t.id_usuario === idUsuario);
-    return found ? found.nombre : idUsuario;
+    return found ? found.nombre : null;
   };
 
   // Filtrado reactivo en memoria
   const filteredData = useMemo(() => {
-    return initialData.filter(row => {
+    return ordenes.filter(row => {
       // 1. Filtro por Búsqueda (contrato, orden_trabajo, direccion, sector_operativo)
       const term = searchTerm.toLowerCase();
       const matchesSearch = 
@@ -115,7 +141,7 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
 
       return matchesSearch && matchesLocalidad && matchesEstado && matchesFecha && matchesTecnico;
     });
-  }, [initialData, searchTerm, localidadFilter, estadoFilter, fechaFilter, tecnicoFilter]);
+  }, [ordenes, searchTerm, localidadFilter, estadoFilter, fechaFilter, tecnicoFilter]);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -164,6 +190,28 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
   };
 
   const isAllVisibleSelected = filteredData.length > 0 && filteredData.every(o => selectedOrdenes.includes(o.orden_trabajo));
+
+  if (loadingOrdenes) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="flex flex-col items-center gap-3">
+          <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          <p className="text-sm text-gray-500">Cargando órdenes...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (errorOrdenes) {
+    return (
+      <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200">
+        {errorOrdenes}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -274,23 +322,26 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
                         {row.estado}
                       </span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 whitespace-nowrap">
                       {(() => {
                         const daysSLA = getDaysSLA(row.fecha_asignacion);
                         const slaColor = daysSLA <= 1 ? 'bg-green-100 text-green-800' : daysSLA === 2 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
                         return (
-                          <span className={`px-2 py-1 rounded text-xs font-semibold ${slaColor}`}>
+                          <span className={`inline-block px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${slaColor}`}>
                             {daysSLA} {daysSLA === 1 ? 'día' : 'días'}
                           </span>
                         );
                       })()}
                     </td>
-                    <td className="py-3 px-4">
-                      {row.id_tecnico_asignado ? (
-                        <p className="text-gray-900 font-medium">{getTecnicoNombre(row.id_tecnico_asignado as string)}</p>
-                      ) : (
-                        <p className="text-gray-400 text-sm">Sin asignar</p>
-                      )}
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      {(() => {
+                        const nombre = getTecnicoNombre(row.id_tecnico_asignado as string);
+                        return nombre ? (
+                          <p className="text-gray-900 font-medium">{nombre}</p>
+                        ) : (
+                          <p className="text-gray-400 text-sm italic">Sin asignar</p>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))
@@ -302,7 +353,7 @@ export default function DespachoTableClient({ initialData }: { initialData: Orde
 
       {/* Resumen de filtrado */}
       <div className="mt-4 text-sm text-gray-500 px-2">
-        Mostrando {filteredData.length} de {initialData.length} órdenes activas
+        Mostrando {filteredData.length} de {ordenes.length} órdenes pendientes
       </div>
 
       {/* Panel flotante de asignación masiva */}

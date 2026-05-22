@@ -1,22 +1,13 @@
-import { supabase } from '@/lib/supabase';
 import DespachoTableClient from '@/components/DespachoTableClient';
 import UserProfile from '@/components/UserProfile';
 
-export default async function DespachoPage() {
-  // Realizamos la consulta a Supabase en el servidor
-  const { data: ordenes, error } = await supabase
-    .from('ordenes')
-    .select('*')
-    .order('fecha_asignacion', { ascending: false });
-
-  const data = ordenes || [];
-
+export default function DespachoPage() {
   return (
     <div className="space-y-6 relative pb-24">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Panel de Despacho</h1>
-          <p className="text-sm text-slate-500 mt-1">Asignación y gestión de órdenes activas</p>
+          <p className="text-sm text-slate-500 mt-1">Asignación y gestión de órdenes pendientes</p>
         </div>
         <div className="flex items-center gap-4">
           <button className="relative p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors">
@@ -28,15 +19,8 @@ export default async function DespachoPage() {
         </div>
       </div>
 
-      {error ? (
-        <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200">
-          No se pudieron cargar las órdenes en este momento. Verificando conexión...
-        </div>
-      ) : (
-        <DespachoTableClient initialData={data} />
-      )}
-
-
+      <DespachoTableClient />
     </div>
   );
 }
+
