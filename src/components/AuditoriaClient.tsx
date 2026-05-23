@@ -26,6 +26,7 @@ type Tecnico = {
 export default function AuditoriaClient({ initialData, error }: { initialData: Orden[], error: any }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [tecnicoFilter, setTecnicoFilter] = useState('Todos los Técnicos');
+  const [estadoFilter, setEstadoFilter] = useState('Todos los Estados');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -59,6 +60,8 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
     return initialData.filter(row => {
       if (row.estado !== 'Efectiva' && row.estado !== 'Cancelada') return false;
 
+      const matchesEstadoFilter = estadoFilter === 'Todos los Estados' || row.estado === estadoFilter;
+
       const term = searchTerm.toLowerCase();
       const matchesSearch =
         !term ||
@@ -79,9 +82,9 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
         matchesDate = false;
       }
 
-      return matchesSearch && matchesTecnico && matchesDate;
+      return matchesEstadoFilter && matchesSearch && matchesTecnico && matchesDate;
     });
-  }, [initialData, searchTerm, tecnicoFilter, startDate, endDate, tecnicos]);
+  }, [initialData, searchTerm, tecnicoFilter, estadoFilter, startDate, endDate, tecnicos]);
 
   const exportToExcel = () => {
     const exportData = filteredData.map(row => ({
@@ -173,6 +176,15 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
           {tecnicosUnicos.map(tech => (
             <option key={tech} value={tech}>{tech}</option>
           ))}
+        </select>
+        <select
+          className="border border-gray-200 rounded-lg px-4 py-2.5 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]"
+          value={estadoFilter}
+          onChange={(e) => setEstadoFilter(e.target.value)}
+        >
+          <option value="Todos los Estados">Todos los Estados</option>
+          <option value="Efectiva">Efectiva</option>
+          <option value="Cancelada">Cancelada</option>
         </select>
       </div>
 

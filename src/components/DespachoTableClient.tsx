@@ -37,7 +37,7 @@ export default function DespachoTableClient() {
   const [errorOrdenes, setErrorOrdenes] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [localidadFilter, setLocalidadFilter] = useState('Todas');
-  const [estadoFilter, setEstadoFilter] = useState('Todos');
+  const [descripcionFilter, setDescripcionFilter] = useState('Todas las Descripciones');
   const [fechaFilter, setFechaFilter] = useState('Todas');
   const [tecnicoFilter, setTecnicoFilter] = useState('Todos');
   const [selectedOrdenes, setSelectedOrdenes] = useState<string[]>([]);
@@ -88,9 +88,9 @@ export default function DespachoTableClient() {
     return Array.from(new Set(locs)).sort();
   }, [ordenes]);
 
-  const estadosUnicos = useMemo(() => {
-    const ests = ordenes.map(o => o.estado).filter(Boolean);
-    return Array.from(new Set(ests)).sort();
+  const descripcionesUnicas = useMemo(() => {
+    const desc = ordenes.map(o => o.descripcion_del_trabajo).filter(Boolean);
+    return Array.from(new Set(desc)).sort();
   }, [ordenes]);
 
   // Derive unique technician IDs from orders (for display fallback in table)
@@ -121,8 +121,8 @@ export default function DespachoTableClient() {
       // 2. Filtro por Localidad
       const matchesLocalidad = localidadFilter === 'Todas' || row.localidad === localidadFilter;
 
-      // 3. Filtro por Estado
-      const matchesEstado = estadoFilter === 'Todos' || row.estado === estadoFilter;
+      // 3. Filtro por Descripción del Trabajo
+      const matchesDescripcion = descripcionFilter === 'Todas las Descripciones' || row.descripcion_del_trabajo === descripcionFilter;
 
       // 4. Filtro por Fecha (SLA)
       const daysSLA = calcularDiasSLA(row.fecha_asignacion_ot);
@@ -141,13 +141,13 @@ export default function DespachoTableClient() {
         (tecnicoFilter === 'Sin asignar' && !row.id_tecnico_asignado) ||
         row.id_tecnico_asignado === tecnicoFilter;
 
-      return matchesSearch && matchesLocalidad && matchesEstado && matchesFecha && matchesTecnico;
+      return matchesSearch && matchesLocalidad && matchesDescripcion && matchesFecha && matchesTecnico;
     }).sort((a, b) => {
       const diasA = calcularDiasSLA(a.fecha_asignacion_ot);
       const diasB = calcularDiasSLA(b.fecha_asignacion_ot);
       return diasB - diasA; // descendente (mayor SLA primero)
     });
-  }, [ordenes, searchTerm, localidadFilter, estadoFilter, fechaFilter, tecnicoFilter]);
+  }, [ordenes, searchTerm, localidadFilter, descripcionFilter, fechaFilter, tecnicoFilter]);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -244,13 +244,13 @@ export default function DespachoTableClient() {
           ))}
         </select>
         <select
-          className="border border-gray-200 rounded-lg px-4 py-2.5 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={estadoFilter}
-          onChange={(e) => setEstadoFilter(e.target.value)}
+          className="border border-gray-200 rounded-lg px-4 py-2.5 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[250px] truncate"
+          value={descripcionFilter}
+          onChange={(e) => setDescripcionFilter(e.target.value)}
         >
-          <option value="Todos">Todos los Estados</option>
-          {estadosUnicos.map(est => (
-            <option key={est} value={est}>{est}</option>
+          <option value="Todas las Descripciones">Todas las Descripciones</option>
+          {descripcionesUnicas.map(desc => (
+            <option key={desc} value={desc}>{desc}</option>
           ))}
         </select>
         <select
