@@ -111,8 +111,8 @@ export default function DespachoTableClient() {
     return ordenes.filter(row => {
       // 1. Filtro por Búsqueda (contrato, orden_trabajo, direccion, barrio)
       const term = searchTerm.toLowerCase();
-      const matchesSearch = 
-        !term || 
+      const matchesSearch =
+        !term ||
         (row.contrato && row.contrato.toLowerCase().includes(term)) ||
         (row.orden_trabajo && row.orden_trabajo.toLowerCase().includes(term)) ||
         (row.direccion && row.direccion.toLowerCase().includes(term)) ||
@@ -136,12 +136,16 @@ export default function DespachoTableClient() {
       }
 
       // 5. Filtro por Técnico
-      const matchesTecnico = 
+      const matchesTecnico =
         tecnicoFilter === 'Todos' ||
         (tecnicoFilter === 'Sin asignar' && !row.id_tecnico_asignado) ||
         row.id_tecnico_asignado === tecnicoFilter;
 
       return matchesSearch && matchesLocalidad && matchesEstado && matchesFecha && matchesTecnico;
+    }).sort((a, b) => {
+      const diasA = calcularDiasSLA(a.fecha_asignacion_ot);
+      const diasB = calcularDiasSLA(b.fecha_asignacion_ot);
+      return diasB - diasA; // descendente (mayor SLA primero)
     });
   }, [ordenes, searchTerm, localidadFilter, estadoFilter, fechaFilter, tecnicoFilter]);
 
@@ -221,15 +225,15 @@ export default function DespachoTableClient() {
       <div className="flex gap-4 items-center">
         <div className="relative flex-1 max-w-xl">
           <svg className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          <input 
-            type="text" 
-            placeholder="Buscar por Contrato, Orden, Dirección o Barrio..." 
+          <input
+            type="text"
+            placeholder="Buscar por Contrato, Orden, Dirección o Barrio..."
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-gray-700"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <select 
+        <select
           className="border border-gray-200 rounded-lg px-4 py-2.5 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={localidadFilter}
           onChange={(e) => setLocalidadFilter(e.target.value)}
@@ -239,7 +243,7 @@ export default function DespachoTableClient() {
             <option key={loc} value={loc}>{loc}</option>
           ))}
         </select>
-        <select 
+        <select
           className="border border-gray-200 rounded-lg px-4 py-2.5 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={estadoFilter}
           onChange={(e) => setEstadoFilter(e.target.value)}
@@ -249,7 +253,7 @@ export default function DespachoTableClient() {
             <option key={est} value={est}>{est}</option>
           ))}
         </select>
-        <select 
+        <select
           className="border border-gray-200 rounded-lg px-4 py-2.5 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[150px]"
           value={fechaFilter}
           onChange={(e) => setFechaFilter(e.target.value)}
@@ -259,7 +263,7 @@ export default function DespachoTableClient() {
           <option value="Últimos 3 días">Últimos 3 días</option>
           <option value="Vencidas">Vencidas {'>'} 48h</option>
         </select>
-        <select 
+        <select
           className="border border-gray-200 rounded-lg px-4 py-2.5 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[150px]"
           value={tecnicoFilter}
           onChange={(e) => setTecnicoFilter(e.target.value)}
@@ -279,9 +283,9 @@ export default function DespachoTableClient() {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500 font-semibold tracking-wider">
                 <th className="py-3 px-4">
-                  <input 
-                    type="checkbox" 
-                    className="rounded" 
+                  <input
+                    type="checkbox"
+                    className="rounded"
                     checked={isAllVisibleSelected}
                     onChange={handleSelectAll}
                   />
@@ -307,9 +311,9 @@ export default function DespachoTableClient() {
                 filteredData.map((row) => (
                   <tr key={row.orden_trabajo} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                     <td className="py-3 px-4">
-                      <input 
-                        type="checkbox" 
-                        className="rounded" 
+                      <input
+                        type="checkbox"
+                        className="rounded"
                         checked={selectedOrdenes.includes(row.orden_trabajo)}
                         onChange={(e) => handleSelectOne(row.orden_trabajo, e.target.checked)}
                       />
@@ -319,7 +323,7 @@ export default function DespachoTableClient() {
                     <td className="py-3 px-4">{row.direccion}</td>
                     <td className="py-3 px-4">{row.barrio || '-'}</td>
                     <td className="py-3 px-4">{row.localidad}</td>
-                    <td className="py-3 px-4 text-xs text-gray-500 max-w-[200px] truncate" title={row.descripcion_del_trabajo || ''}>
+                    <td className="py-3 px-4 text-xs text-gray-500 whitespace-normal break-words min-w-[200px]" title={row.descripcion_del_trabajo || ''}>
                       {row.descripcion_del_trabajo || '-'}
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
@@ -371,7 +375,7 @@ export default function DespachoTableClient() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <select 
+            <select
               className="border border-gray-300 rounded px-4 py-2 bg-white focus:outline-none focus:border-blue-500 text-sm"
               value={selectedTecnicoId}
               onChange={(e) => setSelectedTecnicoId(e.target.value)}
@@ -381,7 +385,7 @@ export default function DespachoTableClient() {
                 <option key={tech.id_usuario} value={tech.id_usuario}>{tech.nombre}</option>
               ))}
             </select>
-            <button 
+            <button
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition shadow-sm text-sm disabled:opacity-50"
               onClick={handleAsignarBloque}
               disabled={isAssigning || !selectedTecnicoId}

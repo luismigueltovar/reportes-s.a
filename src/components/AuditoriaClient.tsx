@@ -84,7 +84,7 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
     const exportData = filteredData.map(row => {
       const fechaCierreStr = (row as any).updated_at || row.fecha_asignacion_ot;
       return {
-        'Fecha Cierre': fechaCierreStr ? new Date(fechaCierreStr).toLocaleDateString() : 'N/A',
+        'Fecha Cierre': fechaCierreStr ? new Date(fechaCierreStr).toLocaleString() : 'N/A',
         'Nº Orden': row.orden_trabajo,
         'Contrato': row.contrato,
         'Dirección': row.direccion || '',
@@ -204,7 +204,7 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
                   return (
                     <tr key={row.orden_trabajo} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="py-4 px-6 text-gray-900">
-                        {fechaCierreStr ? new Date(fechaCierreStr).toLocaleDateString() : 'N/A'}
+                        {fechaCierreStr ? new Date(fechaCierreStr).toLocaleString() : 'N/A'}
                       </td>
                       <td className="py-4 px-6 font-medium text-gray-900">{row.orden_trabajo}</td>
                       <td className="py-4 px-6 text-gray-500">{row.contrato}</td>
