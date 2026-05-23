@@ -88,7 +88,15 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
 
   const exportToExcel = () => {
     const exportData = filteredData.map(row => ({
-      'Fecha Cierre': row.fecha_cierre ? new Date(row.fecha_cierre).toLocaleString() : 'Sin fecha',
+      'Fecha Cierre': row.fecha_cierre ? new Date(row.fecha_cierre).toLocaleString('es-CO', {
+        timeZone: 'America/Bogota',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }) : 'Sin fecha',
       'Nº Orden': row.orden_trabajo,
       'Contrato': row.contrato,
       'Dirección': row.direccion || '',
@@ -214,7 +222,15 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
                 filteredData.map((row) => (
                     <tr key={row.orden_trabajo} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="py-4 px-6 text-gray-900">
-                        {row.fecha_cierre ? new Date(row.fecha_cierre).toLocaleString() : 'Sin fecha'}
+                        {row.fecha_cierre ? new Date(row.fecha_cierre).toLocaleString('es-CO', {
+                          timeZone: 'America/Bogota',
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: true
+                        }) : 'Sin fecha'}
                       </td>
                       <td className="py-4 px-6 font-medium text-gray-900">{row.orden_trabajo}</td>
                       <td className="py-4 px-6 text-gray-500">{row.contrato}</td>
