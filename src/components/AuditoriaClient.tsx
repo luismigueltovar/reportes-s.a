@@ -12,6 +12,7 @@ type Orden = {
   id_tecnico_asignado?: string;
   fecha_asignacion_ot?: string;
   updated_at?: string;
+  fecha_cierre?: string;
   direccion?: string;
   barrio?: string;
   [key: string]: any;
@@ -68,12 +69,14 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
       const matchesTecnico = tecnicoFilter === 'Todos los Técnicos' || techName === tecnicoFilter;
 
       let matchesDate = true;
-      const fechaCierre = row.updated_at || row.fecha_asignacion_ot;
-      if (startDate && fechaCierre) {
-        if (new Date(fechaCierre) < new Date(startDate)) matchesDate = false;
-      }
-      if (endDate && fechaCierre) {
-        if (new Date(fechaCierre) > new Date(endDate)) matchesDate = false;
+      if (row.fecha_cierre) {
+        // Extraer solo la parte de fecha (YYYY-MM-DD) para comparar sin hora
+        const fechaCierreDay = row.fecha_cierre.slice(0, 10);
+        if (startDate && fechaCierreDay < startDate) matchesDate = false;
+        if (endDate && fechaCierreDay > endDate) matchesDate = false;
+      } else if (startDate || endDate) {
+        // Si no tiene fecha_cierre y hay filtro activo, excluir la fila
+        matchesDate = false;
       }
 
       return matchesSearch && matchesTecnico && matchesDate;
@@ -81,18 +84,15 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
   }, [initialData, searchTerm, tecnicoFilter, startDate, endDate, tecnicos]);
 
   const exportToExcel = () => {
-    const exportData = filteredData.map(row => {
-      const fechaCierreStr = (row as any).updated_at || row.fecha_asignacion_ot;
-      return {
-        'Fecha Cierre': fechaCierreStr ? new Date(fechaCierreStr).toLocaleString() : 'N/A',
-        'Nº Orden': row.orden_trabajo,
-        'Contrato': row.contrato,
-        'Dirección': row.direccion || '',
-        'Barrio': row.barrio || '',
-        'Estado': row.estado,
-        'Técnico': getTecnicoNombre(row.id_tecnico_asignado)
-      };
-    });
+    const exportData = filteredData.map(row => ({
+      'Fecha Cierre': row.fecha_cierre ? new Date(row.fecha_cierre).toLocaleString() : 'Sin fecha',
+      'Nº Orden': row.orden_trabajo,
+      'Contrato': row.contrato,
+      'Dirección': row.direccion || '',
+      'Barrio': row.barrio || '',
+      'Estado': row.estado,
+      'Técnico': getTecnicoNombre(row.id_tecnico_asignado)
+    }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
@@ -199,12 +199,10 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
                   </td>
                 </tr>
               ) : (
-                filteredData.map((row) => {
-                  const fechaCierreStr = (row as any).updated_at || row.fecha_asignacion_ot;
-                  return (
+                filteredData.map((row) => (
                     <tr key={row.orden_trabajo} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="py-4 px-6 text-gray-900">
-                        {fechaCierreStr ? new Date(fechaCierreStr).toLocaleString() : 'N/A'}
+                        {row.fecha_cierre ? new Date(row.fecha_cierre).toLocaleString() : 'Sin fecha'}
                       </td>
                       <td className="py-4 px-6 font-medium text-gray-900">{row.orden_trabajo}</td>
                       <td className="py-4 px-6 text-gray-500">{row.contrato}</td>
@@ -223,8 +221,7 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
                         </button>
                       </td>
                     </tr>
-                  );
-                })
+                ))
               )}
             </tbody>
           </table>
