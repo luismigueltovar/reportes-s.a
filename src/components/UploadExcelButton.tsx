@@ -76,9 +76,9 @@ export default function UploadExcelButton() {
           direccion: String(row['DIRECCION'] || '').trim(),
           barrio: String(row['BARRIO'] || row['SECTOR OPERATIVO'] || '').trim(),
           localidad: normalizeLocalidad(String(row['LOCALIDAD'] || '')),
-          descripcion_del_trabajo: String(row['DESCRIPCION_DEL_TRABAJO'] || row['TIPO TRABAJO'] || '').trim(),
+          descripcion_del_trabajo: String(row['DESCRIPCIÓN DEL TRABAJO'] || row['DESCRIPCION DEL TRABAJO'] || row['DESCRIPCION_DEL_TRABAJO'] || row['TIPO TRABAJO'] || '').trim(),
           fecha_asignacion_ot: parseExcelDate(row['FECHA_ASIGNACION_OT'] || row['FECHA ASIGNACION']),
-          observacion_solicitud: String(row['OBSERVACION_SOLICITUD'] || '').trim(),
+          observacion_solicitud: String(row['OBSERVACIÓN SOLICITUD'] || row['OBSERVACION SOLICITUD'] || row['OBSERVACION'] || row['OBSERVACION_SOLICITUD'] || '').trim(),
           estado: 'Pendiente',
           id_tecnico_asignado: null,
         }));
