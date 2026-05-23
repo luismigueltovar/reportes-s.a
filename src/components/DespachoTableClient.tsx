@@ -291,7 +291,7 @@ export default function DespachoTableClient() {
                 <th className="py-3 px-4">Dirección</th>
                 <th className="py-3 px-4">Barrio</th>
                 <th className="py-3 px-4">Localidad</th>
-                <th className="py-3 px-4">Estado</th>
+                <th className="py-3 px-4">Descripción del Trabajo</th>
                 <th className="py-3 px-4">Días / SLA</th>
                 <th className="py-3 px-4">Técnico Asignado</th>
               </tr>
@@ -319,10 +319,8 @@ export default function DespachoTableClient() {
                     <td className="py-3 px-4">{row.direccion}</td>
                     <td className="py-3 px-4">{row.barrio || '-'}</td>
                     <td className="py-3 px-4">{row.localidad}</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${row.estado === 'Pendiente' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' : row.estado === 'Cancelada' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
-                        {row.estado}
-                      </span>
+                    <td className="py-3 px-4 text-xs text-gray-500 max-w-[200px] truncate" title={row.descripcion_del_trabajo || ''}>
+                      {row.descripcion_del_trabajo || '-'}
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       {(() => {
