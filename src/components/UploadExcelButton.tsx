@@ -33,17 +33,17 @@ const normalizeLocalidad = (rawLocalidad: string) => {
   return normalized;
 };
 
-// Helper to normalize Tecnico email
-const normalizeTecnicoEmail = (rawTecnico: string) => {
+// Helper to normalize Tecnico nombre
+const normalizeTecnicoNombre = (rawTecnico: string) => {
   if (!rawTecnico) return null;
   const trimmed = rawTecnico.trim().toLowerCase();
   if (trimmed === 'programado' || trimmed === '') return null;
   
   const cleaned = trimmed
     .replace(/^spr\.?\s*/g, '') // Elimina prefijos de supervisor
-    .replace(/\s+/g, '.');      // Reemplaza espacios por puntos
+    .trim();
     
-  return `${cleaned}@hlgas.com`;
+  return cleaned;
 };
 
 export default function UploadExcelButton() {
@@ -83,7 +83,7 @@ export default function UploadExcelButton() {
       // FETCH DE PERFILES
       const { data: perfilesData, error: perfilesError } = await supabase
         .from('perfiles')
-        .select('id, email');
+        .select('id_usuario, nombre');
         
       if (perfilesError) throw perfilesError;
 
@@ -92,13 +92,13 @@ export default function UploadExcelButton() {
         .filter(row => !!row['ORDEN TRABAJO']) // Ignorar filas sin orden de trabajo
         .map(row => {
           const rawTecnico = String(row['TECNICO'] || '');
-          const normalizedEmail = normalizeTecnicoEmail(rawTecnico);
+          const normalizedName = normalizeTecnicoNombre(rawTecnico);
           let assignedId = null;
           
-          if (normalizedEmail) {
-            const matchedProfile = perfilesData?.find(p => p.email === normalizedEmail);
+          if (normalizedName) {
+            const matchedProfile = perfilesData?.find(p => p.nombre?.trim().toLowerCase() === normalizedName);
             if (matchedProfile) {
-              assignedId = matchedProfile.id;
+              assignedId = matchedProfile.id_usuario;
             }
           }
 
