@@ -33,6 +33,19 @@ const normalizeLocalidad = (rawLocalidad: string) => {
   return normalized;
 };
 
+// Helper to normalize Tecnico email
+const normalizeTecnicoEmail = (rawTecnico: string) => {
+  if (!rawTecnico) return null;
+  const trimmed = rawTecnico.trim().toLowerCase();
+  if (trimmed === 'programado' || trimmed === '') return null;
+  
+  const cleaned = trimmed
+    .replace(/^spr\.?\s*/g, '') // Elimina prefijos de supervisor
+    .replace(/\s+/g, '.');      // Reemplaza espacios por puntos
+    
+  return `${cleaned}@hlgas.com`;
+};
+
 export default function UploadExcelButton() {
   const [loading, setLoading] = useState(false);
   const [lastUpload, setLastUpload] = useState<string | null>(null);
@@ -67,21 +80,41 @@ export default function UploadExcelButton() {
         throw new Error('El archivo Excel está vacío.');
       }
 
+      // FETCH DE PERFILES
+      const { data: perfilesData, error: perfilesError } = await supabase
+        .from('perfiles')
+        .select('id, email');
+        
+      if (perfilesError) throw perfilesError;
+
       // Mapeo inicial
       const formattedData = jsonData
         .filter(row => !!row['ORDEN TRABAJO']) // Ignorar filas sin orden de trabajo
-        .map(row => ({
-          orden_trabajo: String(row['ORDEN TRABAJO']).trim(),
-          contrato: String(row['CONTRATO'] || '').trim(),
-          direccion: String(row['DIRECCION'] || '').trim(),
-          barrio: String(row['BARRIO'] || row['SECTOR OPERATIVO'] || '').trim(),
-          localidad: normalizeLocalidad(String(row['LOCALIDAD'] || '')),
-          descripcion_del_trabajo: String(row['DESCRIPCIÓN DEL TRABAJO'] || row['DESCRIPCION DEL TRABAJO'] || row['DESCRIPCION_DEL_TRABAJO'] || row['TIPO TRABAJO'] || '').trim(),
-          fecha_asignacion_ot: parseExcelDate(row['FECHA_ASIGNACION_OT'] || row['FECHA ASIGNACION']),
-          observacion_solicitud: String(row['OBSERVACIÓN SOLICITUD'] || row['OBSERVACION SOLICITUD'] || row['OBSERVACION'] || row['OBSERVACION_SOLICITUD'] || '').trim(),
-          estado: 'Pendiente',
-          id_tecnico_asignado: null,
-        }));
+        .map(row => {
+          const rawTecnico = String(row['TECNICO'] || '');
+          const normalizedEmail = normalizeTecnicoEmail(rawTecnico);
+          let assignedId = null;
+          
+          if (normalizedEmail) {
+            const matchedProfile = perfilesData?.find(p => p.email === normalizedEmail);
+            if (matchedProfile) {
+              assignedId = matchedProfile.id;
+            }
+          }
+
+          return {
+            orden_trabajo: String(row['ORDEN TRABAJO']).trim(),
+            contrato: String(row['CONTRATO'] || '').trim(),
+            direccion: String(row['DIRECCION'] || '').trim(),
+            barrio: String(row['BARRIO'] || row['SECTOR OPERATIVO'] || '').trim(),
+            localidad: normalizeLocalidad(String(row['LOCALIDAD'] || '')),
+            descripcion_del_trabajo: String(row['DESCRIPCIÓN DEL TRABAJO'] || row['DESCRIPCION DEL TRABAJO'] || row['DESCRIPCION_DEL_TRABAJO'] || row['TIPO TRABAJO'] || '').trim(),
+            fecha_asignacion_ot: parseExcelDate(row['FECHA_ASIGNACION_OT'] || row['FECHA ASIGNACION']),
+            observacion_solicitud: String(row['OBSERVACIÓN SOLICITUD'] || row['OBSERVACION SOLICITUD'] || row['OBSERVACION'] || row['OBSERVACION_SOLICITUD'] || '').trim(),
+            estado: 'Pendiente',
+            id_tecnico_asignado: assignedId,
+          };
+        });
 
       if (formattedData.length === 0) {
         throw new Error('No se encontraron órdenes válidas en el archivo.');
@@ -107,7 +140,9 @@ export default function UploadExcelButton() {
         if (existing) {
           return {
             ...order,
-            id_tecnico_asignado: existing.id_tecnico_asignado, // Preservar técnico
+            // Priorizamos preservar el técnico existente. 
+            // Si el Excel trae una asignación y antes era null, la toma.
+            id_tecnico_asignado: existing.id_tecnico_asignado || order.id_tecnico_asignado,
             estado: existing.estado,                           // Preservar estado actual
           };
         }
