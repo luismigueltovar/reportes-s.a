@@ -22,7 +22,6 @@ const parseExcelDate = (excelDate: string | number | undefined | null) => {
   return null;
 };
 
-// Helper to normalize Localidad
 const normalizeLocalidad = (rawLocalidad: string) => {
   if (!rawLocalidad) return '';
   // Extraer el texto dentro del último par de paréntesis
@@ -46,7 +45,11 @@ const normalizeTecnicoNombre = (rawTecnico: string) => {
   return cleaned;
 };
 
-export default function UploadExcelButton() {
+interface UploadExcelButtonProps {
+  onUploadSuccess?: () => void;
+}
+
+export default function UploadExcelButton({ onUploadSuccess }: UploadExcelButtonProps = {}) {
   const [loading, setLoading] = useState(false);
   const [lastUpload, setLastUpload] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -162,8 +165,11 @@ export default function UploadExcelButton() {
 
       toast.success(`Archivo procesado: ${finalDataToUpsert.length} órdenes cargadas`, { id: 'excel-upload' });
 
-      // Refrescar los componentes de servidor de Next.js
-      router.refresh();
+      if (onUploadSuccess) {
+        onUploadSuccess();
+      } else {
+        router.refresh();
+      }
 
     } catch (error: unknown) {
       console.error('Error procesando Excel:', error);

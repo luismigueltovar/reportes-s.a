@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import UploadExcelButton from '@/components/UploadExcelButton';
 
 type Orden = {
   orden_trabajo: string;
@@ -45,26 +46,27 @@ export default function DespachoTableClient() {
   const [selectedTecnicoId, setSelectedTecnicoId] = useState('');
 
   // Fetch órdenes pendientes desde Supabase
-  useEffect(() => {
-    const fetchOrdenes = async () => {
-      setLoadingOrdenes(true);
-      setErrorOrdenes(null);
-      const { data, error } = await supabase
-        .from('ordenes')
-        .select('*')
-        .eq('estado', 'Pendiente')
-        .order('fecha_asignacion_ot', { ascending: false });
+  const fetchOrdenes = useCallback(async () => {
+    setLoadingOrdenes(true);
+    setErrorOrdenes(null);
+    const { data, error } = await supabase
+      .from('ordenes')
+      .select('*')
+      .eq('estado', 'Pendiente')
+      .order('fecha_asignacion_ot', { ascending: false });
 
-      if (error) {
-        console.error('Error al cargar órdenes:', error);
-        setErrorOrdenes('No se pudieron cargar las órdenes.');
-      } else {
-        setOrdenes(data || []);
-      }
-      setLoadingOrdenes(false);
-    };
-    fetchOrdenes();
+    if (error) {
+      console.error('Error al cargar órdenes:', error);
+      setErrorOrdenes('No se pudieron cargar las órdenes.');
+    } else {
+      setOrdenes(data || []);
+    }
+    setLoadingOrdenes(false);
   }, []);
+
+  useEffect(() => {
+    fetchOrdenes();
+  }, [fetchOrdenes]);
 
   // Fetch real technicians from perfiles table
   useEffect(() => {
@@ -221,6 +223,9 @@ export default function DespachoTableClient() {
 
   return (
     <>
+      <div className="flex justify-end mb-6">
+        <UploadExcelButton onUploadSuccess={fetchOrdenes} />
+      </div>
       {/* Controles de Filtros */}
       <div className="flex gap-4 items-center">
         <div className="relative flex-1 max-w-xl">
