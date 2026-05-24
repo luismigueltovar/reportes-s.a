@@ -15,6 +15,7 @@ type Orden = {
   fecha_cierre?: string;
   direccion?: string;
   barrio?: string;
+  urls_fotos?: string[];
   [key: string]: any;
 };
 
@@ -29,6 +30,7 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
   const [estadoFilter, setEstadoFilter] = useState('Todos los Estados');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [evidenciasModal, setEvidenciasModal] = useState<string[] | null>(null);
 
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
 
@@ -242,11 +244,19 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
                         </span>
                       </td>
                       <td className="py-4 px-6 text-gray-600">{getTecnicoNombre(row.id_tecnico_asignado)}</td>
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-6 flex items-center gap-3">
                         <button className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-2 text-sm">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                           Ver PDF
                         </button>
+                        {row.urls_fotos && row.urls_fotos.length > 0 && (
+                          <button
+                            onClick={() => setEvidenciasModal(row.urls_fotos!)}
+                            className="text-purple-600 hover:text-purple-800 font-semibold flex items-center gap-1 text-sm bg-purple-50 hover:bg-purple-100 px-2 py-1 rounded-md transition-colors"
+                          >
+                            📸 Evidencias
+                          </button>
+                        )}
                       </td>
                     </tr>
                 ))
@@ -255,6 +265,32 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
           </table>
         </div>
       </div>
+
+      {evidenciasModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-slate-800">Evidencias Fotográficas</h3>
+              <button
+                onClick={() => setEvidenciasModal(null)}
+                className="text-gray-400 hover:bg-gray-100 hover:text-red-500 rounded-full p-1.5 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[70vh] flex flex-col gap-4 p-4 bg-gray-50">
+              {evidenciasModal.map((url, index) => (
+                <img
+                  key={index}
+                  src={url}
+                  alt={`Evidencia ${index + 1}`}
+                  className="rounded-lg shadow-md max-w-full mx-auto"
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
