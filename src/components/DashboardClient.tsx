@@ -82,10 +82,10 @@ export default function DashboardClient({
   const pendientesVencidas = ordenesActivas.filter(o => {
     if (!o.fecha_asignacion_ot) return false;
     const asignacion = new Date(o.fecha_asignacion_ot);
-    const now = new Date();
-    const diffTime = now.getTime() - asignacion.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 3;
+    const ahora = new Date();
+    const diferenciaMs = ahora.getTime() - asignacion.getTime();
+    const dias = Math.floor(diferenciaMs / (1000 * 60 * 60 * 24));
+    return dias >= 3;
   }).length;
 
   const finalizadas = data.filter(o => o.estado === 'Efectiva' || o.estado === 'Cancelada').length;
@@ -213,7 +213,7 @@ export default function DashboardClient({
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-gray-500">Pendientes ({'>'} 3 días)</span>
+            <span className="text-sm font-medium text-gray-500">Pendientes ({'>='} 3 días)</span>
             <span className="text-4xl font-bold text-gray-900 mt-1">{pendientesVencidas}</span>
             <span className="text-xs text-gray-400 mt-1">{pendientesPct}% de las activas</span>
           </div>

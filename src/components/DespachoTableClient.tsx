@@ -24,13 +24,13 @@ type Tecnico = {
   nombre: string;
 };
 
-const calcularDiasSLA = (fecha_asignacion_ot?: string) => {
-  if (!fecha_asignacion_ot) return 0;
-  const asignacion = new Date(fecha_asignacion_ot);
-  const now = new Date();
-  const diffTime = now.getTime() - asignacion.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  return Math.max(0, diffDays); // evitar negativos si la fecha es futura
+const calcularDiasSLA = (fechaAsignacion?: string) => {
+  if (!fechaAsignacion) return 0;
+  const asignacion = new Date(fechaAsignacion);
+  const ahora = new Date();
+  const diferenciaMs = ahora.getTime() - asignacion.getTime();
+  const dias = Math.floor(diferenciaMs / (1000 * 60 * 60 * 24));
+  return dias > 0 ? dias : 0;
 };
 
 export default function DespachoTableClient() {
@@ -67,7 +67,7 @@ export default function DespachoTableClient() {
       const fechaStr = updateData[0].fecha_asignacion_ot;
       if (fechaStr) {
         const fecha = new Date(fechaStr);
-        setLastUpdateDate(fecha.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }));
+        setLastUpdateDate(fecha.toLocaleString('es-CO', { timeZone: 'America/Bogota', dateStyle: 'short', timeStyle: 'short' }));
       }
     }
 
@@ -150,7 +150,7 @@ export default function DespachoTableClient() {
       } else if (fechaFilter === 'Últimos 3 días') {
         matchesFecha = daysSLA <= 3;
       } else if (fechaFilter === 'Vencidas') {
-        matchesFecha = daysSLA > 2; // Asumiendo SLA de 48h
+        matchesFecha = daysSLA >= 3;
       }
 
       // 5. Filtro por Técnico
@@ -291,7 +291,7 @@ export default function DespachoTableClient() {
           <option value="Todas">Todas las fechas</option>
           <option value="Hoy">Hoy (0 días)</option>
           <option value="Últimos 3 días">Últimos 3 días</option>
-          <option value="Vencidas">Vencidas {'>'} 48h</option>
+          <option value="Vencidas">Vencidas ({'>='} 3 días)</option>
         </select>
         <select
           className="border border-gray-200 rounded-lg px-4 py-2.5 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[150px]"
@@ -359,7 +359,7 @@ export default function DespachoTableClient() {
                     <td className="py-3 px-4 whitespace-nowrap">
                       {(() => {
                         const daysSLA = calcularDiasSLA(row.fecha_asignacion_ot);
-                        const slaColor = daysSLA <= 1 ? 'bg-green-100 text-green-800' : daysSLA === 2 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
+                        const slaColor = daysSLA >= 3 ? 'bg-red-100 text-red-800' : daysSLA === 2 ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800';
                         return (
                           <span className={`inline-block px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${slaColor}`}>
                             {daysSLA} {daysSLA === 1 ? 'día' : 'días'}
