@@ -11,10 +11,23 @@ export default function NotificationsBell() {
 
   useEffect(() => {
     const channel = supabase.channel('realtime-ordenes-bell')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ordenes' }, (payload) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ordenes' }, async (payload) => {
         if (payload.new.estado !== payload.old.estado && (payload.new.estado === 'Efectiva' || payload.new.estado === 'Cancelada')) {
+          let nombreTecnico = 'Un técnico';
+          if (payload.new.id_tecnico_asignado) {
+            const { data: perfil } = await supabase
+              .from('perfiles')
+              .select('nombre')
+              .eq('id_usuario', payload.new.id_tecnico_asignado)
+              .single();
+              
+            if (perfil && perfil.nombre) {
+              nombreTecnico = perfil.nombre.replace(/\b\w/g, (l: string) => l.toUpperCase());
+            }
+          }
+          
           setUnreadCount(prev => prev + 1);
-          setNotificaciones(prev => [`Orden ${payload.new.contrato || payload.new.orden_trabajo} cerrada como ${payload.new.estado}`, ...prev]);
+          setNotificaciones(prev => [`${nombreTecnico} cerró la orden ${payload.new.contrato || payload.new.orden_trabajo} como ${payload.new.estado}.`, ...prev]);
         }
       })
       .subscribe();

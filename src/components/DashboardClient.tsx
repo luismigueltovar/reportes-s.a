@@ -36,7 +36,7 @@ export default function DashboardClient({
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'ordenes' },
-        (payload) => {
+        async (payload) => {
           const newRow = payload.new as Orden;
           const oldRow = payload.old as Orden;
           
@@ -44,7 +44,19 @@ export default function DashboardClient({
 
           // Si el estado cambió a Efectiva o Cancelada, mostrar toast
           if (oldRow.estado === 'Pendiente' && (newRow.estado === 'Efectiva' || newRow.estado === 'Cancelada')) {
-             toast.success('Un técnico ha cerrado una orden');
+            let nombreTecnico = 'Un técnico';
+            if (newRow.id_tecnico_asignado) {
+              const { data: perfil } = await supabase
+                .from('perfiles')
+                .select('nombre')
+                .eq('id_usuario', newRow.id_tecnico_asignado)
+                .single();
+                
+              if (perfil && perfil.nombre) {
+                nombreTecnico = perfil.nombre.replace(/\b\w/g, (l: string) => l.toUpperCase());
+              }
+            }
+            toast.success(`${nombreTecnico} cerró la orden ${newRow.contrato || newRow.orden_trabajo} como ${newRow.estado}.`);
           }
         }
       )
