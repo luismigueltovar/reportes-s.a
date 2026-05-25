@@ -76,12 +76,24 @@ export default function DashboardClient({
   }, []);
 
   // Cálculos totales
-  const totalOrdenes = data.length;
-  const pendientes = data.filter(o => o.estado === 'Pendiente').length;
-  const finalizadas = data.filter(o => o.estado === 'Efectiva' || o.estado === 'Cancelada').length;
+  const ordenesActivas = data.filter(o => o.estado !== 'Efectiva' && o.estado !== 'Cancelada');
+  const totalActivas = ordenesActivas.length;
 
-  const pendientesPct = totalOrdenes ? ((pendientes / totalOrdenes) * 100).toFixed(1) : '0.0';
-  const finalizadasPct = totalOrdenes ? ((finalizadas / totalOrdenes) * 100).toFixed(1) : '0.0';
+  const pendientesVencidas = ordenesActivas.filter(o => {
+    if (!o.fecha_asignacion_ot) return false;
+    const asignacion = new Date(o.fecha_asignacion_ot);
+    const now = new Date();
+    const diffTime = now.getTime() - asignacion.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 3;
+  }).length;
+
+  const finalizadas = data.filter(o => o.estado === 'Efectiva' || o.estado === 'Cancelada').length;
+  const totalOrdenesGeneral = data.length;
+
+  const activasPct = totalOrdenesGeneral ? ((totalActivas / totalOrdenesGeneral) * 100).toFixed(1) : '0.0';
+  const pendientesPct = totalActivas ? ((pendientesVencidas / totalActivas) * 100).toFixed(1) : '0.0';
+  const finalizadasPct = totalOrdenesGeneral ? ((finalizadas / totalOrdenesGeneral) * 100).toFixed(1) : '0.0';
 
   // Agrupar por Localidad
   const locMap = data.reduce((acc, curr) => {
@@ -94,7 +106,7 @@ export default function DashboardClient({
     .map(loc => ({
       loc,
       val: locMap[loc],
-      pct: totalOrdenes ? ((locMap[loc] / totalOrdenes) * 100).toFixed(1) + '%' : '0%',
+      pct: totalOrdenesGeneral ? ((locMap[loc] / totalOrdenesGeneral) * 100).toFixed(1) + '%' : '0%',
       color: 'blue', 
       colorHex: 'bg-blue-600'
     }))
@@ -191,9 +203,9 @@ export default function DashboardClient({
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-gray-500">Órdenes Totales</span>
-            <span className="text-4xl font-bold text-gray-900 mt-1">{totalOrdenes}</span>
-            <span className="text-xs text-gray-400 mt-1">100% del total</span>
+            <span className="text-sm font-medium text-gray-500">Órdenes Activas</span>
+            <span className="text-4xl font-bold text-gray-900 mt-1">{totalActivas}</span>
+            <span className="text-xs text-gray-400 mt-1">{activasPct}% del total histórico</span>
           </div>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex items-center">
@@ -201,9 +213,9 @@ export default function DashboardClient({
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-gray-500">Pendientes</span>
-            <span className="text-4xl font-bold text-gray-900 mt-1">{pendientes}</span>
-            <span className="text-xs text-gray-400 mt-1">{pendientesPct}% del total</span>
+            <span className="text-sm font-medium text-gray-500">Pendientes ({'>'} 3 días)</span>
+            <span className="text-4xl font-bold text-gray-900 mt-1">{pendientesVencidas}</span>
+            <span className="text-xs text-gray-400 mt-1">{pendientesPct}% de las activas</span>
           </div>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex items-center">

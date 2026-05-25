@@ -194,6 +194,8 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
     XLSX.writeFile(workbook, 'Reporte_Auditoria.xlsx');
   };
 
+  const dataOrdenada = [...filteredData].sort((a, b) => new Date(b.fecha_cierre || 0).getTime() - new Date(a.fecha_cierre || 0).getTime());
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-6">
@@ -313,14 +315,14 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
               </tr>
             </thead>
             <tbody className="text-sm text-gray-700">
-              {filteredData.length === 0 ? (
+              {dataOrdenada.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-8 px-6 text-center text-gray-500">
                     No hay órdenes en historial o que coincidan con los filtros.
                   </td>
                 </tr>
               ) : (
-                filteredData.map((row) => (
+                dataOrdenada.map((row) => (
                     <tr key={row.orden_trabajo} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="py-4 px-6 text-center">
                         <input

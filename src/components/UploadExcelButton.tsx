@@ -51,17 +51,8 @@ interface UploadExcelButtonProps {
 
 export default function UploadExcelButton({ onUploadSuccess }: UploadExcelButtonProps = {}) {
   const [loading, setLoading] = useState(false);
-  const [lastUpload, setLastUpload] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    // Cargar el último timestamp guardado asíncronamente para evitar error de linting
-    const saved = localStorage.getItem('lastUploadTimestamp');
-    if (saved) {
-      setTimeout(() => setLastUpload(saved), 0);
-    }
-  }, []);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -159,10 +150,6 @@ export default function UploadExcelButton({ onUploadSuccess }: UploadExcelButton
 
       if (upsertError) throw upsertError;
 
-      const newTimestamp = new Date().toLocaleString();
-      localStorage.setItem('lastUploadTimestamp', newTimestamp);
-      setLastUpload(newTimestamp);
-
       toast.success(`Archivo procesado: ${finalDataToUpsert.length} órdenes cargadas`, { id: 'excel-upload' });
 
       if (onUploadSuccess) {
@@ -185,11 +172,6 @@ export default function UploadExcelButton({ onUploadSuccess }: UploadExcelButton
 
   return (
     <div className="flex items-center gap-3">
-      {lastUpload && (
-        <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-1 rounded-md hidden sm:block">
-          Última carga: {lastUpload}
-        </span>
-      )}
       <input
         type="file"
         ref={inputRef}
