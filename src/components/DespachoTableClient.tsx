@@ -3,7 +3,8 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import UploadExcelButton from '@/components/UploadExcelButton';
-
+import UserProfile from '@/components/UserProfile';
+import NotificationsBell from '@/components/NotificationsBell';
 type Orden = {
   orden_trabajo: string;
   contrato: string;
@@ -44,6 +45,7 @@ export default function DespachoTableClient() {
   const [selectedOrdenes, setSelectedOrdenes] = useState<string[]>([]);
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
   const [selectedTecnicoId, setSelectedTecnicoId] = useState('');
+  const [lastUpdateDate, setLastUpdateDate] = useState<string | null>(null);
 
   // Fetch órdenes pendientes desde Supabase
   const fetchOrdenes = useCallback(async () => {
@@ -54,6 +56,20 @@ export default function DespachoTableClient() {
       .select('*')
       .eq('estado', 'Pendiente')
       .order('fecha_asignacion_ot', { ascending: false });
+
+    const { data: updateData, error: updateError } = await supabase
+      .from('ordenes')
+      .select('fecha_asignacion_ot')
+      .order('fecha_asignacion_ot', { ascending: false })
+      .limit(1);
+      
+    if (!updateError && updateData && updateData.length > 0) {
+      const fechaStr = updateData[0].fecha_asignacion_ot;
+      if (fechaStr) {
+        const fecha = new Date(fechaStr);
+        setLastUpdateDate(fecha.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }));
+      }
+    }
 
     if (error) {
       console.error('Error al cargar órdenes:', error);
@@ -223,8 +239,17 @@ export default function DespachoTableClient() {
 
   return (
     <>
-      <div className="flex justify-end mb-6">
-        <UploadExcelButton onUploadSuccess={fetchOrdenes} />
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Panel de Despacho</h1>
+          <p className="text-sm text-slate-500 mt-1">Asignación y gestión de órdenes pendientes</p>
+        </div>
+        <div className="flex items-center gap-4">
+          {lastUpdateDate && <span className="text-sm font-medium text-gray-500 hidden md:block">Última actualización: {lastUpdateDate}</span>}
+          <UploadExcelButton onUploadSuccess={fetchOrdenes} />
+          <NotificationsBell />
+          <UserProfile />
+        </div>
       </div>
       {/* Controles de Filtros */}
       <div className="flex gap-4 items-center">
