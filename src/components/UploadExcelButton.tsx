@@ -114,43 +114,24 @@ export default function UploadExcelButton({ onUploadSuccess }: UploadExcelButton
         throw new Error('No se encontraron órdenes válidas en el archivo.');
       }
 
-      // 1. Obtener órdenes existentes para no sobrescribir técnicos ni estado
-      const ordenesIds = formattedData.map(o => o.orden_trabajo);
-
-      // Consultamos en lotes si son demasiadas, pero Supabase soporta in() con miles de ids
-      const { data: existingOrders, error: fetchError } = await supabase
+      // Insertar solo órdenes nuevas. Las que ya existen se ignoran completamente
+      // para proteger TODOS los datos que los técnicos hayan capturado en campo.
+      const { data: insertedRows, error: upsertError } = await supabase
         .from('ordenes')
-        .select('orden_trabajo, id_tecnico_asignado, estado')
-        .in('orden_trabajo', ordenesIds);
-
-      if (fetchError) throw fetchError;
-
-      const existingMap = new Map();
-      existingOrders?.forEach(o => existingMap.set(o.orden_trabajo, o));
-
-      // 2. Combinar datos
-      const finalDataToUpsert = formattedData.map(order => {
-        const existing = existingMap.get(order.orden_trabajo);
-        if (existing) {
-          return {
-            ...order,
-            // Priorizamos preservar el técnico existente. 
-            // Si el Excel trae una asignación y antes era null, la toma.
-            id_tecnico_asignado: existing.id_tecnico_asignado || order.id_tecnico_asignado,
-            estado: existing.estado,                           // Preservar estado actual
-          };
-        }
-        return order;
-      });
-
-      // 3. Upsert
-      const { error: upsertError } = await supabase
-        .from('ordenes')
-        .upsert(finalDataToUpsert, { onConflict: 'orden_trabajo' });
+        .upsert(formattedData, {
+          onConflict: 'orden_trabajo',
+          ignoreDuplicates: true,
+        })
+        .select('orden_trabajo');
 
       if (upsertError) throw upsertError;
 
-      toast.success(`Archivo procesado: ${finalDataToUpsert.length} órdenes cargadas`, { id: 'excel-upload' });
+      const insertedCount = insertedRows?.length ?? 0;
+      const skippedCount = formattedData.length - insertedCount;
+      const message = skippedCount > 0
+        ? `${insertedCount} órdenes nuevas insertadas, ${skippedCount} ya existían y fueron ignoradas`
+        : `${insertedCount} órdenes cargadas exitosamente`;
+      toast.success(message, { id: 'excel-upload' });
 
       if (onUploadSuccess) {
         onUploadSuccess();
