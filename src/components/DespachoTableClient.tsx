@@ -47,6 +47,14 @@ export default function DespachoTableClient() {
   const [selectedTecnicoId, setSelectedTecnicoId] = useState('');
   const [lastUpdateDate, setLastUpdateDate] = useState<string | null>(null);
 
+  // Helper: formatea un Date a string legible en zona horaria de Colombia
+  const formatTimestamp = (date: Date): string =>
+    date.toLocaleString('es-CO', {
+      timeZone: 'America/Bogota',
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+
   // Fetch órdenes pendientes desde Supabase
   const fetchOrdenes = useCallback(async () => {
     setLoadingOrdenes(true);
@@ -57,20 +65,6 @@ export default function DespachoTableClient() {
       .eq('estado', 'Pendiente')
       .order('fecha_asignacion_ot', { ascending: false });
 
-    const { data: updateData, error: updateError } = await supabase
-      .from('ordenes')
-      .select('fecha_asignacion_ot')
-      .order('fecha_asignacion_ot', { ascending: false })
-      .limit(1);
-      
-    if (!updateError && updateData && updateData.length > 0) {
-      const fechaStr = updateData[0].fecha_asignacion_ot;
-      if (fechaStr) {
-        const fecha = new Date(fechaStr);
-        setLastUpdateDate(fecha.toLocaleString('es-CO', { timeZone: 'America/Bogota', dateStyle: 'short', timeStyle: 'short' }));
-      }
-    }
-
     if (error) {
       console.error('Error al cargar órdenes:', error);
       setErrorOrdenes('No se pudieron cargar las órdenes.');
@@ -80,9 +74,46 @@ export default function DespachoTableClient() {
     setLoadingOrdenes(false);
   }, []);
 
-  useEffect(() => {
+  // Lee la fecha de la última carga de Excel desde la tabla app_metadata.
+  // Se ejecuta una sola vez al montar el componente.
+  const fetchLastUploadDate = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('app_metadata')
+      .select('valor')
+      .eq('clave', 'ultima_carga_excel')
+      .single();
+
+    if (!error && data?.valor) {
+      const fecha = new Date(data.valor);
+      setLastUpdateDate(formatTimestamp(fecha));
+    }
+  }, []);
+
+  // Callback para cuando el upload termina exitosamente:
+  // 1. Persiste el timestamp exacto en app_metadata (Supabase)
+  // 2. Actualiza el estado local inmediatamente
+  // 3. Refresca la tabla de órdenes
+  const handleUploadSuccess = useCallback(async () => {
+    const ahora = new Date();
+    const isoTimestamp = ahora.toISOString();
+
+    // Persistir en Supabase para que cualquier sesión/usuario lo vea
+    await supabase
+      .from('app_metadata')
+      .upsert(
+        { clave: 'ultima_carga_excel', valor: isoTimestamp, updated_at: isoTimestamp },
+        { onConflict: 'clave' }
+      );
+
+    // Actualizar estado local inmediatamente
+    setLastUpdateDate(formatTimestamp(ahora));
     fetchOrdenes();
   }, [fetchOrdenes]);
+
+  useEffect(() => {
+    fetchOrdenes();
+    fetchLastUploadDate();
+  }, [fetchOrdenes, fetchLastUploadDate]);
 
   // Fetch real technicians from perfiles table
   useEffect(() => {
@@ -246,7 +277,7 @@ export default function DespachoTableClient() {
         </div>
         <div className="flex items-center gap-4">
           {lastUpdateDate && <span className="text-sm font-medium text-gray-500 hidden md:block">Última actualización: {lastUpdateDate}</span>}
-          <UploadExcelButton onUploadSuccess={fetchOrdenes} />
+          <UploadExcelButton onUploadSuccess={handleUploadSuccess} />
           <NotificationsBell />
           <UserProfile />
         </div>
