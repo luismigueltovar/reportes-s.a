@@ -95,8 +95,8 @@ export default function DashboardClient({
   const pendientesPct = totalActivas ? ((pendientesVencidas / totalActivas) * 100).toFixed(1) : '0.0';
   const finalizadasPct = totalOrdenesGeneral ? ((finalizadas / totalOrdenesGeneral) * 100).toFixed(1) : '0.0';
 
-  // Agrupar por Localidad
-  const locMap = data.reduce((acc, curr) => {
+  // Agrupar por Localidad — solo órdenes activas (excluye Efectiva y Cancelada)
+  const locMap = ordenesActivas.reduce((acc, curr) => {
     const loc = curr.localidad || 'SIN LOCALIDAD';
     acc[loc] = (acc[loc] || 0) + 1;
     return acc;
@@ -106,7 +106,7 @@ export default function DashboardClient({
     .map(loc => ({
       loc,
       val: locMap[loc],
-      pct: totalOrdenesGeneral ? ((locMap[loc] / totalOrdenesGeneral) * 100).toFixed(1) + '%' : '0%',
+      pct: totalActivas ? ((locMap[loc] / totalActivas) * 100).toFixed(1) + '%' : '0%',
       color: 'blue', 
       colorHex: 'bg-blue-600'
     }))
