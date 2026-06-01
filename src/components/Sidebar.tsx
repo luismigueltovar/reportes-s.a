@@ -22,7 +22,7 @@ export default function Sidebar() {
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-full flex-shrink-0">
       <div className="p-6 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <img src="/icon.png" alt="Logo HLGAS" className="w-10 h-10 object-contain rounded-xl shrink-0" />
+          <img src="/logo.png" alt="Logo HLGAS" className="w-10 h-10 object-contain rounded-xl shrink-0" />
           <div>
             <h1 className="text-xl font-bold text-white tracking-wide leading-none">HLGAS</h1>
             <p className="text-xs text-slate-400 mt-1">Gestión Operativa</p>
