@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import UserProfile from '@/components/UserProfile';
 import NotificationsBell from '@/components/NotificationsBell';
@@ -36,8 +37,11 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
   const [evidenciasModal, setEvidenciasModal] = useState<string[] | null>(null);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isReopening, setIsReopening] = useState<string | null>(null);
+  const [ordenes, setOrdenes] = useState<Orden[]>(initialData);
 
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchTecnicos = async () => {
@@ -59,12 +63,12 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
   };
 
   const tecnicosUnicos = useMemo(() => {
-    const techs = initialData.map(o => o.id_tecnico_asignado).filter(Boolean);
+    const techs = ordenes.map(o => o.id_tecnico_asignado).filter(Boolean);
     return Array.from(new Set(techs)).sort().map(id => getTecnicoNombre(id));
-  }, [initialData, tecnicos]);
+  }, [ordenes, tecnicos]);
 
   const filteredData = useMemo(() => {
-    return initialData.filter(row => {
+    return ordenes.filter(row => {
       if (row.estado !== 'Efectiva' && row.estado !== 'Cancelada') return false;
 
       const matchesEstadoFilter = estadoFilter === 'Todos los Estados' || row.estado === estadoFilter;
@@ -99,7 +103,7 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
 
       return matchesEstadoFilter && matchesSearch && matchesTecnico && matchesDate;
     });
-  }, [initialData, searchTerm, tecnicoFilter, estadoFilter, startDate, endDate, tecnicos]);
+  }, [ordenes, searchTerm, tecnicoFilter, estadoFilter, startDate, endDate, tecnicos]);
 
   const isAllSelected = filteredData.length > 0 && selectedOrders.length === filteredData.length;
 
@@ -126,6 +130,36 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
       saveAs(blob, filename);
     } catch (err) {
       console.error("Error downloading file", err);
+    }
+  };
+
+  // ── Reabrir orden ──────────────────────────────────────────────────────
+  const handleReabrirOrden = async (ordenTrabajo: string) => {
+    const confirmado = window.confirm(
+      `¿Estás seguro de reabrir la orden ${ordenTrabajo}? Volverá a aparecer en el panel de despacho y en la app del técnico.`
+    );
+    if (!confirmado) return;
+
+    setIsReopening(ordenTrabajo);
+    try {
+      const { error } = await supabase
+        .from('ordenes')
+        .update({ estado: 'Pendiente', fecha_cierre: null, urls_fotos: null })
+        .eq('orden_trabajo', ordenTrabajo);
+
+      if (error) {
+        console.error('Error al reabrir orden:', error);
+        alert('Hubo un error al reabrir la orden.');
+      } else {
+        // Quitar la orden de la lista local para que desaparezca de auditoría
+        setOrdenes(prev => prev.filter(o => o.orden_trabajo !== ordenTrabajo));
+        setSelectedOrders(prev => prev.filter(id => id !== ordenTrabajo));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Hubo un error inesperado al reabrir la orden.');
+    } finally {
+      setIsReopening(null);
     }
   };
 
@@ -362,16 +396,31 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
                       </td>
                       <td className="py-4 px-6 text-gray-600">{getTecnicoNombre(row.id_tecnico_asignado)}</td>
                       <td className="py-4 px-6">
-                        {row.urls_fotos && row.urls_fotos.length > 0 ? (
+                        <div className="flex items-center gap-2">
+                          {row.urls_fotos && row.urls_fotos.length > 0 ? (
+                            <button
+                              onClick={() => setEvidenciasModal(row.urls_fotos!)}
+                              className="text-purple-600 hover:text-purple-800 font-semibold flex items-center gap-1 text-sm bg-purple-50 hover:bg-purple-100 px-2 py-1 rounded-md transition-colors w-fit"
+                            >
+                              📸 Evidencias
+                            </button>
+                          ) : (
+                            <span className="text-gray-400 text-xs italic">Sin evidencias</span>
+                          )}
                           <button
-                            onClick={() => setEvidenciasModal(row.urls_fotos!)}
-                            className="text-purple-600 hover:text-purple-800 font-semibold flex items-center gap-1 text-sm bg-purple-50 hover:bg-purple-100 px-2 py-1 rounded-md transition-colors w-fit"
+                            onClick={() => handleReabrirOrden(row.orden_trabajo)}
+                            disabled={isReopening === row.orden_trabajo}
+                            className="text-amber-600 hover:text-amber-800 font-semibold flex items-center gap-1 text-sm bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-md transition-colors w-fit disabled:opacity-50"
+                            title="Reabrir orden (vuelve a Pendiente)"
                           >
-                            📸 Evidencias
+                            {isReopening === row.orden_trabajo ? (
+                              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            )}
+                            Reabrir
                           </button>
-                        ) : (
-                          <span className="text-gray-400 text-xs italic">Sin evidencias</span>
-                        )}
+                        </div>
                       </td>
                     </tr>
                 ))

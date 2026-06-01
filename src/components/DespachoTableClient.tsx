@@ -218,6 +218,7 @@ export default function DespachoTableClient() {
   };
 
   const [isAssigning, setIsAssigning] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleAsignarBloque = async () => {
     if (!selectedTecnicoId || selectedOrdenes.length === 0) return;
@@ -241,6 +242,38 @@ export default function DespachoTableClient() {
       alert('Hubo un error inesperado al asignar.');
     } finally {
       setIsAssigning(false);
+    }
+  };
+
+  // ── Eliminar órdenes ────────────────────────────────────────────────────
+  const handleDeleteOrdenes = async (ids: string[]) => {
+    if (ids.length === 0) return;
+
+    const mensaje = ids.length === 1
+      ? `¿Estás seguro de eliminar la orden ${ids[0]}? Esta acción es IRREVERSIBLE.`
+      : `¿Estás seguro de eliminar ${ids.length} órdenes? Esta acción es IRREVERSIBLE.`;
+
+    if (!window.confirm(mensaje)) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('ordenes')
+        .delete()
+        .in('orden_trabajo', ids);
+
+      if (error) {
+        console.error('Error al eliminar órdenes:', error);
+        alert('Hubo un error al eliminar las órdenes.');
+      } else {
+        setSelectedOrdenes(prev => prev.filter(id => !ids.includes(id)));
+        fetchOrdenes();
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Hubo un error inesperado al eliminar.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -428,12 +461,13 @@ export default function DespachoTableClient() {
                 <th className="py-3 px-4">Descripción del Trabajo</th>
                 <th className="py-3 px-4">Días / SLA</th>
                 <th className="py-3 px-4">Técnico Asignado</th>
+                <th className="py-3 px-4 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="text-sm text-gray-700">
               {filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-gray-500">
+                  <td colSpan={10} className="p-8 text-center text-gray-500">
                     No se encontraron órdenes que coincidan con los filtros.
                   </td>
                 </tr>
@@ -476,6 +510,16 @@ export default function DespachoTableClient() {
                           <p className="text-gray-400 text-sm italic">Sin asignar</p>
                         );
                       })()}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <button
+                        onClick={() => handleDeleteOrdenes([row.orden_trabajo])}
+                        disabled={isDeleting}
+                        className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors disabled:opacity-40"
+                        title="Eliminar orden"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -521,6 +565,14 @@ export default function DespachoTableClient() {
               disabled={isAssigning || !selectedTecnicoId}
             >
               {isAssigning ? 'Asignando...' : 'Asignar órdenes en bloque'}
+            </button>
+            <button
+              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-md font-medium transition shadow-sm text-sm disabled:opacity-50 flex items-center gap-2"
+              onClick={() => handleDeleteOrdenes(selectedOrdenes)}
+              disabled={isDeleting}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              {isDeleting ? 'Eliminando...' : `Eliminar (${selectedOrdenes.length})`}
             </button>
           </div>
         </div>
