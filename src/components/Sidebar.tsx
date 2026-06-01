@@ -22,12 +22,10 @@ export default function Sidebar() {
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-full flex-shrink-0">
       <div className="p-6 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center text-white shrink-0">
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C11.5 2 11 2.4 10.8 2.9C10.2 4.3 9 5.7 8.2 6.9C7.1 8.5 6 10 6 12C6 15.3 8.7 18 12 18S18 15.3 18 12C18 10 16.9 8.5 15.8 6.9C15 5.7 13.8 4.3 13.2 2.9C13 2.4 12.5 2 12 2ZM12 16C9.8 16 8 14.2 8 12C8 10.5 8.8 9.3 9.7 8C10.3 7 11.2 5.8 11.8 4.7C12.4 5.8 13.3 7 13.9 8C14.8 9.3 15.6 10.5 15.6 12C15.6 14.2 13.8 16 11.6 16H12Z"/></svg>
-          </div>
+          <img src="/icon.png" alt="Logo HLGAS" className="w-10 h-10 object-contain rounded-xl shrink-0" />
           <div>
-            <h1 className="text-xl font-bold text-white tracking-wide leading-none">Reportes S.A</h1>
-            <p className="text-xs text-slate-400 mt-1">Sistema de Gestión</p>
+            <h1 className="text-xl font-bold text-white tracking-wide leading-none">HLGAS</h1>
+            <p className="text-xs text-slate-400 mt-1">Gestión Operativa</p>
           </div>
         </div>
       </div>

@@ -7,7 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Reportes S.A Admin Panel",
+  title: "HLGAS — Gestión Operativa",
   description: "Sistema Logístico y de Despacho",
 };
 

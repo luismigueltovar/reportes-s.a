@@ -185,7 +185,7 @@ export default function LoginPage() {
         </form>
 
         <p className="login-footer">
-          © {new Date().getFullYear()} Reportes S.A — Todos los derechos reservados
+          © {new Date().getFullYear()} HLGAS — Todos los derechos reservados
         </p>
       </div>
     </div>
