@@ -246,6 +246,65 @@ export default function DespachoTableClient() {
 
   const isAllVisibleSelected = filteredData.length > 0 && filteredData.every(o => selectedOrdenes.includes(o.orden_trabajo));
 
+  // ── Exportar a CSV ──────────────────────────────────────────────────────
+  const handleExportCSV = () => {
+    if (filteredData.length === 0) return;
+
+    const headers = [
+      'Orden',
+      'Contrato',
+      'Dirección',
+      'Barrio',
+      'Localidad',
+      'Descripción del Trabajo',
+      'Días SLA',
+      'Técnico Asignado',
+    ];
+
+    const escapeCSV = (value: string): string => {
+      if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    };
+
+    const rows = filteredData.map((row) => {
+      const diasSLA = calcularDiasSLA(row.fecha_asignacion_ot);
+      const tecnico = getTecnicoNombre(row.id_tecnico_asignado as string) || 'Sin asignar';
+      return [
+        row.orden_trabajo || '',
+        row.contrato || '',
+        row.direccion || '',
+        row.barrio || '',
+        row.localidad || '',
+        row.descripcion_del_trabajo || '',
+        String(diasSLA),
+        tecnico,
+      ].map(escapeCSV).join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    // BOM para que Excel interprete correctamente los acentos
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const fileName = `Reporte_Despacho_${yyyy}${mm}${dd}.csv`;
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+
   if (loadingOrdenes) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -277,6 +336,16 @@ export default function DespachoTableClient() {
         </div>
         <div className="flex items-center gap-4">
           {lastUpdateDate && <span className="text-sm font-medium text-gray-500 hidden md:block">Última actualización: {lastUpdateDate}</span>}
+          <button
+            onClick={handleExportCSV}
+            disabled={filteredData.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Descargar CSV
+          </button>
           <UploadExcelButton onUploadSuccess={handleUploadSuccess} />
           <NotificationsBell />
           <UserProfile />
