@@ -80,8 +80,16 @@ export default function AuditoriaClient({ initialData, error }: { initialData: O
 
       let matchesDate = true;
       if (row.fecha_cierre) {
-        // Extraer solo la parte de fecha (YYYY-MM-DD) para comparar sin hora
-        const fechaCierreDay = row.fecha_cierre.slice(0, 10);
+        // Convertir la fecha UTC a la zona horaria de Colombia antes de comparar
+        const fechaUTC = new Date(row.fecha_cierre);
+        const formatter = new Intl.DateTimeFormat('sv-SE', {
+          timeZone: 'America/Bogota',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        });
+        // formatter con locale 'sv-SE' produce formato YYYY-MM-DD directamente
+        const fechaCierreDay = formatter.format(fechaUTC);
         if (startDate && fechaCierreDay < startDate) matchesDate = false;
         if (endDate && fechaCierreDay > endDate) matchesDate = false;
       } else if (startDate || endDate) {
