@@ -114,23 +114,66 @@ export default function UploadExcelButton({ onUploadSuccess }: UploadExcelButton
         throw new Error('No se encontraron órdenes válidas en el archivo.');
       }
 
-      // Insertar solo órdenes nuevas. Las que ya existen se ignoran completamente
-      // para proteger TODOS los datos que los técnicos hayan capturado en campo.
-      const { data: insertedRows, error: upsertError } = await supabase
+      // --- SINCRONIZACIÓN INTELIGENTE ---
+
+      // 1. Extraer todos los números de orden del Excel
+      const excelOrdenIds = formattedData.map(o => o.orden_trabajo);
+
+      // 2. Consultar qué órdenes YA existen en la base de datos
+      const { data: ordenesExistentes, error: fetchError } = await supabase
         .from('ordenes')
-        .upsert(formattedData, {
-          onConflict: 'orden_trabajo',
-          ignoreDuplicates: true,
-        })
-        .select('orden_trabajo');
+        .select('orden_trabajo, id_tecnico_asignado, estado')
+        .in('orden_trabajo', excelOrdenIds);
 
-      if (upsertError) throw upsertError;
+      if (fetchError) throw fetchError;
 
-      const insertedCount = insertedRows?.length ?? 0;
-      const skippedCount = formattedData.length - insertedCount;
-      const message = skippedCount > 0
-        ? `${insertedCount} órdenes nuevas insertadas, ${skippedCount} ya existían y fueron ignoradas`
-        : `${insertedCount} órdenes cargadas exitosamente`;
+      const mapaExistentes = new Map(ordenesExistentes?.map(o => [o.orden_trabajo, o]));
+
+      type TipoOrden = typeof formattedData[0];
+      const nuevasOrdenes: TipoOrden[] = [];
+      const promesasActualizacion: any[] = [];
+      let actualizadasCount = 0;
+
+      // 3. Clasificar entre órdenes nuevas y cambios de asignación
+      for (const fila of formattedData) {
+        const dbOrder = mapaExistentes.get(fila.orden_trabajo);
+
+        if (!dbOrder) {
+          // La orden no existe en la BD, la preparamos para insertar completa
+          nuevasOrdenes.push(fila);
+        } else {
+          // La orden ya existe. Protegemos los datos de campo.
+          // Solo actualizamos si sigue "Pendiente" y el técnico en Excel es diferente al de la BD.
+          if (dbOrder.estado === 'Pendiente' && dbOrder.id_tecnico_asignado !== fila.id_tecnico_asignado) {
+            promesasActualizacion.push(
+              supabase
+                .from('ordenes')
+                .update({ id_tecnico_asignado: fila.id_tecnico_asignado })
+                .eq('orden_trabajo', fila.orden_trabajo)
+            );
+            actualizadasCount++;
+          }
+        }
+      }
+
+      // 4. Insertar las nuevas órdenes en bloque
+      let insertadasCount = 0;
+      if (nuevasOrdenes.length > 0) {
+        const { error: insertError } = await supabase
+          .from('ordenes')
+          .insert(nuevasOrdenes);
+
+        if (insertError) throw insertError;
+        insertadasCount = nuevasOrdenes.length;
+      }
+
+      // 5. Ejecutar las actualizaciones de técnicos (si hubo cambios)
+      if (promesasActualizacion.length > 0) {
+        await Promise.all(promesasActualizacion);
+      }
+
+      const sinCambiosCount = formattedData.length - insertadasCount - actualizadasCount;
+      const message = `${insertadasCount} nuevas, ${actualizadasCount} reasignadas, ${sinCambiosCount} sin cambios.`;
       toast.success(message, { id: 'excel-upload' });
 
       if (onUploadSuccess) {
