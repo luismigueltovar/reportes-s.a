@@ -36,7 +36,9 @@ const normalizeLocalidad = (rawLocalidad: string) => {
 const normalizeTecnicoNombre = (rawTecnico: string) => {
   if (!rawTecnico) return null;
   const trimmed = rawTecnico.trim().toLowerCase();
-  if (trimmed === 'programado' || trimmed === '') return null;
+  
+  // Se eliminó 'programado' de las excepciones para que pueda ser asignado
+  if (trimmed === '') return null;
   
   const cleaned = trimmed
     .replace(/^spr\.?\s*/g, '') // Elimina prefijos de supervisor
