@@ -36,11 +36,18 @@ interface ResumenItem {
   hora_cierre: string;
 }
 
+interface ResumenData {
+  cierres: ResumenItem[];
+  ultima_sincronizacion?: string;
+  total_ordenes_cerradas?: number;
+}
+
 interface RutaDiaria {
   tecnico_id: string;
   fecha: string;
   trayectoria: PuntoTrayectoria[];
-  resumen: ResumenItem[];
+  resumen: ResumenData;
+  cierres: ResumenItem[];  // extraído de resumen.cierres
   estado: string;
 }
 
@@ -153,14 +160,20 @@ export default function TrazabilidadPage() {
         ? JSON.parse(raw.trayectoria)
         : (raw.trayectoria ?? []);
 
-      const resumen = typeof raw.resumen === 'string'
+      const resumenRaw = typeof raw.resumen === 'string'
         ? JSON.parse(raw.resumen)
-        : (raw.resumen ?? []);
+        : (raw.resumen ?? {});
+
+      // Compatibilidad: si es array directo (formato anterior) o .cierres
+      const cierres = Array.isArray(resumenRaw)
+        ? resumenRaw
+        : (resumenRaw.cierres ?? []);
 
       setRuta({
         ...raw,
         trayectoria: Array.isArray(trayectoria) ? trayectoria : [],
-        resumen: Array.isArray(resumen) ? resumen : [],
+        resumen: resumenRaw,
+        cierres: Array.isArray(cierres) ? cierres : [],
       } as RutaDiaria);
     } else {
       setRuta(null);
@@ -169,9 +182,9 @@ export default function TrazabilidadPage() {
     setLoading(false);
   }, [tecnicoId, fecha]);
 
-  // ── Derivar eventos de bitácora desde resumen[] ────────────────────────
-  const resumenArr = Array.isArray(ruta?.resumen) ? ruta.resumen : [];
-  const bitacoraEvents = resumenArr.map((item) => ({
+  // ── Derivar eventos de bitácora desde cierres[] ────────────────────────
+  const cierresArr = Array.isArray(ruta?.cierres) ? ruta.cierres : [];
+  const bitacoraEvents = cierresArr.map((item) => ({
     time: formatHora(item.hora_cierre),
     title: `Contrato: ${item.id_contrato}`,
     detail: `Cierre registrado`,
@@ -344,7 +357,7 @@ export default function TrazabilidadPage() {
                   <div className="bg-slate-50 rounded-xl p-3 text-center">
                     <p className="text-xs text-slate-500">Contratos visitados</p>
                     <p className="text-xl font-bold text-slate-800">
-                      {ruta.resumen?.length ?? 0}
+                      {ruta.cierres?.length ?? 0}
                     </p>
                   </div>
                   <div className="bg-slate-50 rounded-xl p-3 text-center">
@@ -356,7 +369,7 @@ export default function TrazabilidadPage() {
                   <div className="bg-green-50 rounded-xl p-3 text-center col-span-2">
                     <p className="text-xs text-green-600">Tiempo total en sitio</p>
                     <p className="text-xl font-bold text-green-700">
-                      {(ruta.resumen ?? []).reduce((a, c) => a + (c.tiempo_en_sitio_minutos || 0), 0)} min
+                      {(ruta.cierres ?? []).reduce((a, c) => a + (c.tiempo_en_sitio_minutos || 0), 0)} min
                     </p>
                   </div>
                 </div>
