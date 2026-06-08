@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import UserProfile from '@/components/UserProfile';
 import NotificationsBell from '@/components/NotificationsBell';
+import { supabase } from '@/lib/supabase';
+import type { PuntoTrayectoria } from '@/components/MapRecorridos';
 
 // ── Import mapa sin SSR ──────────────────────────────────────────────────
 const MapRecorridos = dynamic(() => import('@/components/MapRecorridos'), {
@@ -22,44 +24,25 @@ const MapRecorridos = dynamic(() => import('@/components/MapRecorridos'), {
   ),
 });
 
-// ── Timeline data (mock) ─────────────────────────────────────────────────
-const bitacoraEvents = [
-  {
-    time: '08:02 AM',
-    title: 'Inicio de recorrido',
-    detail: 'Salida desde base operativa — Av. 6N #23-45',
-    color: 'bg-green-500',
-    ring: 'ring-green-100',
-  },
-  {
-    time: '08:12 AM',
-    title: 'Llegada a contrato #48291',
-    detail: 'Cl. 15 #28-10 — Revisión periódica domiciliaria',
-    color: 'bg-blue-600',
-    ring: 'ring-blue-100',
-  },
-  {
-    time: '08:18 AM',
-    title: 'Foto de soporte cargada',
-    detail: 'Evidencia medidor — 2 fotos subidas correctamente',
-    color: 'bg-purple-500',
-    ring: 'ring-purple-100',
-  },
-  {
-    time: '08:27 AM',
-    title: 'Contrato cerrado como Efectiva',
-    detail: 'Técnico confirmó revisión sin novedades',
-    color: 'bg-emerald-500',
-    ring: 'ring-emerald-100',
-  },
-  {
-    time: '08:35 AM',
-    title: 'Alerta de desvío',
-    detail: 'Técnico fuera de zona asignada (+300 m)',
-    color: 'bg-red-500',
-    ring: 'ring-red-100',
-  },
-];
+// ── Tipos ────────────────────────────────────────────────────────────────
+interface Tecnico {
+  id_usuario: string;
+  nombre: string;
+}
+
+interface ResumenItem {
+  id_contrato: string;
+  tiempo_en_sitio_minutos: number;
+  hora_cierre: string;
+}
+
+interface RutaDiaria {
+  tecnico_id: string;
+  fecha: string;
+  trayectoria: PuntoTrayectoria[];
+  resumen: ResumenItem[];
+  estado: string;
+}
 
 // ── TimelineItem ─────────────────────────────────────────────────────────
 function TimelineItem({
@@ -68,6 +51,7 @@ function TimelineItem({
   detail,
   color,
   ring,
+  badge,
   isLast,
 }: {
   time: string;
@@ -75,6 +59,7 @@ function TimelineItem({
   detail: string;
   color: string;
   ring: string;
+  badge?: string;
   isLast: boolean;
 }) {
   return (
@@ -90,16 +75,97 @@ function TimelineItem({
         <p className="text-xs text-slate-400 font-medium mb-0.5">{time}</p>
         <p className="text-sm font-semibold text-slate-800 leading-snug">{title}</p>
         <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{detail}</p>
+        {badge && (
+          <span className="inline-block mt-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
+            ⏱ {badge}
+          </span>
+        )}
       </div>
     </div>
   );
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+function formatHora(hora: string): string {
+  try {
+    // Si ya viene en formato legible, retornar tal cual
+    if (/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(hora)) return hora;
+
+    // Si viene como HH:mm:ss o ISO, formatear
+    const date = new Date(`1970-01-01T${hora}`);
+    if (isNaN(date.getTime())) return hora;
+
+    return date.toLocaleTimeString('es-CO', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return hora;
+  }
 }
 
 // ── Page Component ───────────────────────────────────────────────────────
 export default function TrazabilidadPage() {
   const today = new Date().toISOString().split('T')[0];
   const [fecha, setFecha] = useState(today);
-  const [tecnico, setTecnico] = useState('Victor Castaño');
+  const [tecnicoId, setTecnicoId] = useState('');
+  const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
+  const [ruta, setRuta] = useState<RutaDiaria | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+
+  // ── Cargar técnicos al montar ──────────────────────────────────────────
+  useEffect(() => {
+    async function fetchTecnicos() {
+      const { data, error } = await supabase
+        .from('perfiles')
+        .select('id_usuario, nombre')
+        .eq('rol', 'Técnico')
+        .order('nombre');
+
+      if (!error && data && data.length > 0) {
+        setTecnicos(data);
+        setTecnicoId(data[0].id_usuario);
+      }
+    }
+    fetchTecnicos();
+  }, []);
+
+  // ── Buscar recorrido ──────────────────────────────────────────────────
+  const buscarRecorrido = useCallback(async () => {
+    if (!tecnicoId || !fecha) return;
+
+    setLoading(true);
+    setSearched(true);
+
+    const { data, error } = await supabase
+      .from('rutas_diarias')
+      .select('*')
+      .eq('tecnico_id', tecnicoId)
+      .eq('fecha', fecha)
+      .maybeSingle();
+
+    if (!error && data) {
+      setRuta(data as RutaDiaria);
+    } else {
+      setRuta(null);
+    }
+
+    setLoading(false);
+  }, [tecnicoId, fecha]);
+
+  // ── Derivar eventos de bitácora desde resumen[] ────────────────────────
+  const bitacoraEvents = (ruta?.resumen ?? []).map((item) => ({
+    time: formatHora(item.hora_cierre),
+    title: `Contrato: ${item.id_contrato}`,
+    detail: `Cierre registrado`,
+    color: 'bg-blue-600',
+    ring: 'ring-blue-100',
+    badge: `${item.tiempo_en_sitio_minutos} min en sitio`,
+  }));
+
+  const tecnicoNombre = tecnicos.find((t) => t.id_usuario === tecnicoId)?.nombre ?? '';
 
   return (
     <div className="space-y-6">
@@ -134,21 +200,35 @@ export default function TrazabilidadPage() {
           <label className="block text-xs font-medium text-slate-500 mb-1">Técnico</label>
           <select
             className="border border-gray-200 rounded-lg px-4 py-2.5 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
-            value={tecnico}
-            onChange={(e) => setTecnico(e.target.value)}
+            value={tecnicoId}
+            onChange={(e) => setTecnicoId(e.target.value)}
           >
-            <option>Victor Castaño</option>
-            <option>Carlos Méndez</option>
-            <option>Andrés López</option>
+            {tecnicos.length === 0 && (
+              <option value="">Cargando técnicos…</option>
+            )}
+            {tecnicos.map((t) => (
+              <option key={t.id_usuario} value={t.id_usuario}>
+                {t.nombre}
+              </option>
+            ))}
           </select>
         </div>
         <button
-          className="px-6 py-2.5 rounded-lg font-medium text-white text-sm shadow-sm transition-all hover:opacity-90 active:scale-[0.97] flex items-center gap-2"
+          className="px-6 py-2.5 rounded-lg font-medium text-white text-sm shadow-sm transition-all hover:opacity-90 active:scale-[0.97] flex items-center gap-2 disabled:opacity-50"
           style={{ backgroundColor: '#1A3A6B' }}
+          onClick={buscarRecorrido}
+          disabled={loading || !tecnicoId}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+          {loading ? (
+            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          )}
           Buscar Recorrido
         </button>
       </div>
@@ -157,7 +237,7 @@ export default function TrazabilidadPage() {
       <div className="grid grid-cols-12 gap-6">
         {/* Mapa */}
         <div className="col-span-12 xl:col-span-8">
-          <MapRecorridos />
+          <MapRecorridos trayectoria={ruta?.trayectoria} />
         </div>
 
         {/* Bitácora */}
@@ -174,41 +254,99 @@ export default function TrazabilidadPage() {
               <h2 className="text-lg font-bold text-slate-800">Bitácora del Día</h2>
             </div>
 
-            <div>
-              {bitacoraEvents.map((evt, i) => (
-                <TimelineItem
-                  key={i}
-                  time={evt.time}
-                  title={evt.title}
-                  detail={evt.detail}
-                  color={evt.color}
-                  ring={evt.ring}
-                  isLast={i === bitacoraEvents.length - 1}
-                />
-              ))}
-            </div>
+            {/* Estado vacío */}
+            {searched && !loading && !ruta && (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <svg className="w-16 h-16 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+                <p className="text-sm font-medium text-slate-500">
+                  Sin recorrido registrado para esta fecha
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {tecnicoNombre} — {fecha}
+                </p>
+              </div>
+            )}
+
+            {/* Estado inicial (antes de buscar) */}
+            {!searched && !loading && (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <svg className="w-16 h-16 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <p className="text-sm font-medium text-slate-500">
+                  Selecciona un técnico y fecha
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Presiona &quot;Buscar Recorrido&quot; para consultar
+                </p>
+              </div>
+            )}
+
+            {/* Loading */}
+            {loading && (
+              <div className="flex flex-col items-center justify-center py-16">
+                <svg className="w-10 h-10 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <p className="text-sm text-slate-400 mt-3">Consultando…</p>
+              </div>
+            )}
+
+            {/* Eventos de bitácora reales */}
+            {!loading && ruta && bitacoraEvents.length > 0 && (
+              <div>
+                {bitacoraEvents.map((evt, i) => (
+                  <TimelineItem
+                    key={i}
+                    time={evt.time}
+                    title={evt.title}
+                    detail={evt.detail}
+                    color={evt.color}
+                    ring={evt.ring}
+                    badge={evt.badge}
+                    isLast={i === bitacoraEvents.length - 1}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Sin cierres pero sí hay ruta */}
+            {!loading && ruta && bitacoraEvents.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <p className="text-sm font-medium text-slate-500">
+                  Recorrido registrado, sin cierres de contrato
+                </p>
+              </div>
+            )}
 
             {/* Resumen */}
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-50 rounded-xl p-3 text-center">
-                  <p className="text-xs text-slate-500">Contratos visitados</p>
-                  <p className="text-xl font-bold text-slate-800">3</p>
-                </div>
-                <div className="bg-slate-50 rounded-xl p-3 text-center">
-                  <p className="text-xs text-slate-500">Distancia total</p>
-                  <p className="text-xl font-bold text-slate-800">4.2 km</p>
-                </div>
-                <div className="bg-green-50 rounded-xl p-3 text-center">
-                  <p className="text-xs text-green-600">Efectivas</p>
-                  <p className="text-xl font-bold text-green-700">2</p>
-                </div>
-                <div className="bg-red-50 rounded-xl p-3 text-center">
-                  <p className="text-xs text-red-600">Alertas</p>
-                  <p className="text-xl font-bold text-red-700">1</p>
+            {!loading && ruta && (
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 rounded-xl p-3 text-center">
+                    <p className="text-xs text-slate-500">Contratos visitados</p>
+                    <p className="text-xl font-bold text-slate-800">
+                      {ruta.resumen?.length ?? 0}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3 text-center">
+                    <p className="text-xs text-slate-500">Puntos GPS</p>
+                    <p className="text-xl font-bold text-slate-800">
+                      {ruta.trayectoria?.length ?? 0}
+                    </p>
+                  </div>
+                  <div className="bg-green-50 rounded-xl p-3 text-center col-span-2">
+                    <p className="text-xs text-green-600">Tiempo total en sitio</p>
+                    <p className="text-xl font-bold text-green-700">
+                      {(ruta.resumen ?? []).reduce((a, c) => a + (c.tiempo_en_sitio_minutos || 0), 0)} min
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

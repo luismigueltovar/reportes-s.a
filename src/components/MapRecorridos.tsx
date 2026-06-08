@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
+import { useEffect, useMemo } from 'react';
+import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -25,41 +25,33 @@ function svgIcon(color: string, label: string) {
 }
 
 const iconInicio = svgIcon('#16a34a', 'A');   // verde — inicio
-const iconContrato = svgIcon('#1A3A6B', 'C'); // azul corporativo — contrato
-const iconAlerta = svgIcon('#dc2626', '!');   // rojo — alerta
+const iconFin    = svgIcon('#dc2626', 'B');   // rojo — fin
 
-// ── Simulated route ──────────────────────────────────────────────────────
-const recorridoCoords: [number, number][] = [
-  [3.4516, -76.5320],
-  [3.4525, -76.5305],
-  [3.4538, -76.5288],
-  [3.4550, -76.5272],
-  [3.4562, -76.5258],
-];
+// ── Tipos ────────────────────────────────────────────────────────────────
+export interface PuntoTrayectoria {
+  lat: number;
+  lng: number;
+  hora: string;
+}
 
-const marcadores = [
-  {
-    pos: recorridoCoords[0] as [number, number],
-    icon: iconInicio,
-    title: 'Inicio de recorrido',
-    detail: '08:02 AM — Salida base operativa',
-  },
-  {
-    pos: recorridoCoords[2] as [number, number],
-    icon: iconContrato,
-    title: 'Contrato #48291',
-    detail: '08:18 AM — Revisión periódica domiciliaria',
-  },
-  {
-    pos: recorridoCoords[4] as [number, number],
-    icon: iconAlerta,
-    title: 'Alerta de desvío',
-    detail: '08:35 AM — Técnico fuera de zona asignada',
-  },
-];
+interface MapRecorridosProps {
+  trayectoria?: PuntoTrayectoria[];
+}
+
+// ── Sub-component: ajusta el mapa al bounds de la trayectoria ────────────
+function FitBounds({ coords }: { coords: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (coords.length > 0) {
+      const bounds = L.latLngBounds(coords.map(([lat, lng]) => [lat, lng]));
+      map.fitBounds(bounds, { padding: [40, 40] });
+    }
+  }, [coords, map]);
+  return null;
+}
 
 // ── Component ────────────────────────────────────────────────────────────
-export default function MapRecorridos() {
+export default function MapRecorridos({ trayectoria }: MapRecorridosProps) {
   // Fix default marker icon paths broken by webpack
   useEffect(() => {
     // @ts-ignore
@@ -71,9 +63,18 @@ export default function MapRecorridos() {
     });
   }, []);
 
+  const coords: [number, number][] = useMemo(
+    () => (trayectoria ?? []).map((p) => [p.lat, p.lng] as [number, number]),
+    [trayectoria],
+  );
+
+  // Centro por defecto (Cali) si no hay datos
+  const defaultCenter: [number, number] = [3.4516, -76.532];
+  const center = coords.length > 0 ? coords[0] : defaultCenter;
+
   return (
     <MapContainer
-      center={[3.4516, -76.5320]}
+      center={center}
       zoom={14}
       scrollWheelZoom
       style={{ height: 'calc(100vh - 140px)', width: '100%', borderRadius: '1rem' }}
@@ -84,34 +85,52 @@ export default function MapRecorridos() {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      {/* Polyline — recorrido del técnico */}
-      <Polyline
-        positions={recorridoCoords}
-        pathOptions={{
-          color: '#1A3A6B',
-          weight: 5,
-          opacity: 0.85,
-          dashArray: '10 6',
-          lineCap: 'round',
-          lineJoin: 'round',
-        }}
-      />
+      {coords.length > 0 && (
+        <>
+          <FitBounds coords={coords} />
 
-      {/* Marcadores */}
-      {marcadores.map((m, i) => (
-        <Marker key={i} position={m.pos} icon={m.icon}>
-          <Popup>
-            <div style={{ minWidth: 180 }}>
-              <p style={{ fontWeight: 700, fontSize: 14, margin: 0, color: '#1e293b' }}>
-                {m.title}
-              </p>
-              <p style={{ fontSize: 12, margin: '4px 0 0', color: '#64748b' }}>
-                {m.detail}
-              </p>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
+          {/* Polyline — recorrido del técnico */}
+          <Polyline
+            positions={coords}
+            pathOptions={{
+              color: '#1A3A6B',
+              weight: 5,
+              opacity: 0.85,
+              dashArray: '10 6',
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          />
+
+          {/* Marcador inicio */}
+          <Marker position={coords[0]} icon={iconInicio}>
+            <Popup>
+              <div style={{ minWidth: 180 }}>
+                <p style={{ fontWeight: 700, fontSize: 14, margin: 0, color: '#1e293b' }}>
+                  Inicio de recorrido
+                </p>
+                <p style={{ fontSize: 12, margin: '4px 0 0', color: '#64748b' }}>
+                  {trayectoria![0].hora}
+                </p>
+              </div>
+            </Popup>
+          </Marker>
+
+          {/* Marcador fin */}
+          <Marker position={coords[coords.length - 1]} icon={iconFin}>
+            <Popup>
+              <div style={{ minWidth: 180 }}>
+                <p style={{ fontWeight: 700, fontSize: 14, margin: 0, color: '#1e293b' }}>
+                  Último punto registrado
+                </p>
+                <p style={{ fontSize: 12, margin: '4px 0 0', color: '#64748b' }}>
+                  {trayectoria![trayectoria!.length - 1].hora}
+                </p>
+              </div>
+            </Popup>
+          </Marker>
+        </>
+      )}
     </MapContainer>
   );
 }
