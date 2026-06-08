@@ -147,7 +147,21 @@ export default function TrazabilidadPage() {
       .maybeSingle();
 
     if (!error && data) {
-      setRuta(data as RutaDiaria);
+      const raw = data as any;
+
+      const trayectoria = typeof raw.trayectoria === 'string'
+        ? JSON.parse(raw.trayectoria)
+        : (raw.trayectoria ?? []);
+
+      const resumen = typeof raw.resumen === 'string'
+        ? JSON.parse(raw.resumen)
+        : (raw.resumen ?? []);
+
+      setRuta({
+        ...raw,
+        trayectoria: Array.isArray(trayectoria) ? trayectoria : [],
+        resumen: Array.isArray(resumen) ? resumen : [],
+      } as RutaDiaria);
     } else {
       setRuta(null);
     }
@@ -156,7 +170,8 @@ export default function TrazabilidadPage() {
   }, [tecnicoId, fecha]);
 
   // ── Derivar eventos de bitácora desde resumen[] ────────────────────────
-  const bitacoraEvents = (ruta?.resumen ?? []).map((item) => ({
+  const resumenArr = Array.isArray(ruta?.resumen) ? ruta.resumen : [];
+  const bitacoraEvents = resumenArr.map((item) => ({
     time: formatHora(item.hora_cierre),
     title: `Contrato: ${item.id_contrato}`,
     detail: `Cierre registrado`,

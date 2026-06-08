@@ -63,9 +63,15 @@ export default function MapRecorridos({ trayectoria }: MapRecorridosProps) {
     });
   }, []);
 
+  const puntos: PuntoTrayectoria[] = useMemo(() => {
+    if (!trayectoria) return [];
+    const parsed = typeof trayectoria === 'string' ? JSON.parse(trayectoria) : trayectoria;
+    return Array.isArray(parsed) ? parsed : [];
+  }, [trayectoria]);
+
   const coords: [number, number][] = useMemo(
-    () => (trayectoria ?? []).map((p) => [p.lat, p.lng] as [number, number]),
-    [trayectoria],
+    () => puntos.map((p) => [p.lat, p.lng] as [number, number]),
+    [puntos],
   );
 
   // Centro por defecto (Cali) si no hay datos
