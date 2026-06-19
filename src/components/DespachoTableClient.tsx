@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import UploadExcelButton from '@/components/UploadExcelButton';
 import UserProfile from '@/components/UserProfile';
@@ -46,6 +46,16 @@ export default function DespachoTableClient() {
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
   const [selectedTecnicoId, setSelectedTecnicoId] = useState('');
   const [lastUpdateDate, setLastUpdateDate] = useState<string | null>(null);
+
+  // ── Estado para el menú kebab de acciones ──
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // ── Estado para el modal de "Marcar Efectiva" ──
+  const [ordenEfectivaId, setOrdenEfectivaId] = useState<string | null>(null);
+  const [fotosEfectiva, setFotosEfectiva] = useState<File[]>([]);
+  const [isSubiendoEfectiva, setIsSubiendoEfectiva] = useState(false);
+  const [errorEfectiva, setErrorEfectiva] = useState<string | null>(null);
 
   // Helper: formatea un Date a string legible en zona horaria de Colombia
   const formatTimestamp = (date: Date): string =>
@@ -114,6 +124,17 @@ export default function DespachoTableClient() {
     fetchOrdenes();
     fetchLastUploadDate();
   }, [fetchOrdenes, fetchLastUploadDate]);
+
+  // Cerrar el menú kebab al hacer clic fuera de él
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Fetch real technicians from perfiles table
   useEffect(() => {
@@ -274,6 +295,67 @@ export default function DespachoTableClient() {
       alert('Hubo un error inesperado al eliminar.');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // ── Marcar orden como Efectiva (con subida de fotos) ─────────────────
+  const handleMarcarEfectiva = async (ordenTrabajo: string) => {
+    if (fotosEfectiva.length === 0) {
+      setErrorEfectiva('Debes subir al menos una foto.');
+      return;
+    }
+    setIsSubiendoEfectiva(true);
+    setErrorEfectiva(null);
+    try {
+      for (let index = 0; index < fotosEfectiva.length; index++) {
+        const file = fotosEfectiva[index];
+        const path = `${ordenTrabajo}/evidencia_${index + 1}_${Date.now()}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from('evidencias')
+          .upload(path, file);
+        if (uploadError) {
+          setErrorEfectiva(`Error al subir foto ${index + 1}: ${uploadError.message}`);
+          setIsSubiendoEfectiva(false);
+          return;
+        }
+      }
+      const { error } = await supabase
+        .from('ordenes')
+        .update({ estado: 'Efectiva' })
+        .eq('orden_trabajo', ordenTrabajo);
+      if (error) {
+        setErrorEfectiva(`Error al actualizar la orden: ${error.message}`);
+      } else {
+        setOrdenEfectivaId(null);
+        setFotosEfectiva([]);
+        setErrorEfectiva(null);
+        fetchOrdenes();
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorEfectiva('Hubo un error inesperado al marcar la orden como efectiva.');
+    } finally {
+      setIsSubiendoEfectiva(false);
+    }
+  };
+
+  // ── Cancelar orden ──────────────────────────────────────────────────────
+  const handleCancelarOrden = async (ordenTrabajo: string) => {
+    if (!window.confirm(`¿Estás seguro de cancelar la orden ${ordenTrabajo}? Se marcará como Cancelada.`)) return;
+    try {
+      const { error } = await supabase
+        .from('ordenes')
+        .update({ estado: 'Cancelada' })
+        .eq('orden_trabajo', ordenTrabajo);
+      if (error) {
+        console.error('Error al cancelar orden:', error);
+        alert('Hubo un error al cancelar la orden.');
+      } else {
+        fetchOrdenes();
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Hubo un error inesperado al cancelar la orden.');
     }
   };
 
@@ -512,14 +594,46 @@ export default function DespachoTableClient() {
                       })()}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleDeleteOrdenes([row.orden_trabajo])}
-                        disabled={isDeleting}
-                        className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors disabled:opacity-40"
-                        title="Eliminar orden"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
+                      <div className="relative inline-block" ref={openMenuId === row.orden_trabajo ? menuRef : undefined}>
+                        <button
+                          onClick={() => setOpenMenuId(openMenuId === row.orden_trabajo ? null : row.orden_trabajo)}
+                          className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+                          title="Acciones"
+                        >
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <circle cx="10" cy="4" r="1.5" />
+                            <circle cx="10" cy="10" r="1.5" />
+                            <circle cx="10" cy="16" r="1.5" />
+                          </svg>
+                        </button>
+                        {openMenuId === row.orden_trabajo && (
+                          <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-20 py-1">
+                            <button
+                              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              onClick={() => { setOrdenEfectivaId(row.orden_trabajo); setOpenMenuId(null); }}
+                            >
+                              <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                              Marcar Efectiva
+                            </button>
+                            <button
+                              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              onClick={() => { handleCancelarOrden(row.orden_trabajo); setOpenMenuId(null); }}
+                            >
+                              <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              Cancelar orden
+                            </button>
+                            <div className="border-t border-gray-100 my-1" />
+                            <button
+                              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                              onClick={() => { handleDeleteOrdenes([row.orden_trabajo]); setOpenMenuId(null); }}
+                              disabled={isDeleting}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              Eliminar de la base de datos
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -574,6 +688,68 @@ export default function DespachoTableClient() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
               {isDeleting ? 'Eliminando...' : `Eliminar (${selectedOrdenes.length})`}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Marcar Efectiva */}
+      {ordenEfectivaId && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-4">
+              Marcar orden {ordenEfectivaId} como Efectiva
+            </h2>
+
+            <label className="block text-sm font-medium text-gray-700 mb-2">Subir evidencia fotográfica</label>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => {
+                if (e.target.files) {
+                  setFotosEfectiva(Array.from(e.target.files));
+                  setErrorEfectiva(null);
+                }
+              }}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors"
+            />
+
+            {fotosEfectiva.length > 0 && (
+              <ul className="mt-3 space-y-1">
+                {fotosEfectiva.map((f, i) => (
+                  <li key={i} className="flex items-center justify-between text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-1.5">
+                    <span className="truncate">{f.name}</span>
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-red-500 ml-2 transition-colors"
+                      onClick={() => setFotosEfectiva(prev => prev.filter((_, idx) => idx !== i))}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {errorEfectiva && (
+              <p className="mt-2 text-sm text-red-600">{errorEfectiva}</p>
+            )}
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                onClick={() => { setOrdenEfectivaId(null); setFotosEfectiva([]); setErrorEfectiva(null); }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                disabled={isSubiendoEfectiva}
+                onClick={() => handleMarcarEfectiva(ordenEfectivaId)}
+              >
+                {isSubiendoEfectiva ? 'Subiendo...' : 'Confirmar y subir fotos'}
+              </button>
+            </div>
           </div>
         </div>
       )}
