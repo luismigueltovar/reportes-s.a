@@ -49,6 +49,7 @@ export default function DespachoTableClient() {
 
   // ── Estado para el menú kebab de acciones ──
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // ── Estado para el modal de "Marcar Efectiva" ──
@@ -130,6 +131,7 @@ export default function DespachoTableClient() {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setOpenMenuId(null);
+        setMenuPosition(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -354,7 +356,7 @@ export default function DespachoTableClient() {
     try {
       const { error } = await supabase
         .from('ordenes')
-        .update({ estado: 'Cancelada' })
+        .update({ estado: 'Cancelada', fecha_cierre: new Date().toISOString() })
         .eq('orden_trabajo', ordenTrabajo);
       if (error) {
         console.error('Error al cancelar orden:', error);
@@ -603,46 +605,65 @@ export default function DespachoTableClient() {
                       })()}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <div className="relative inline-block" ref={openMenuId === row.orden_trabajo ? menuRef : undefined}>
-                        <button
-                          onClick={() => setOpenMenuId(openMenuId === row.orden_trabajo ? null : row.orden_trabajo)}
-                          className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
-                          title="Acciones"
+                      <button
+                        onClick={(e) => {
+                          if (openMenuId === row.orden_trabajo) {
+                            setOpenMenuId(null);
+                            setMenuPosition(null);
+                          } else {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const alturaMenuEstimada = 140;
+                            const espacioAbajo = window.innerHeight - rect.bottom;
+                            const top = espacioAbajo < alturaMenuEstimada
+                              ? rect.top + window.scrollY - alturaMenuEstimada - 4
+                              : rect.bottom + window.scrollY + 4;
+                            setMenuPosition({
+                              top,
+                              left: rect.right + window.scrollX - 224,
+                            });
+                            setOpenMenuId(row.orden_trabajo);
+                          }
+                        }}
+                        className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+                        title="Acciones"
+                      >
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <circle cx="10" cy="4" r="1.5" />
+                          <circle cx="10" cy="10" r="1.5" />
+                          <circle cx="10" cy="16" r="1.5" />
+                        </svg>
+                      </button>
+                      {openMenuId === row.orden_trabajo && menuPosition && (
+                        <div
+                          ref={menuRef}
+                          style={{ position: 'fixed', top: menuPosition.top, left: menuPosition.left }}
+                          className="w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 py-1"
                         >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <circle cx="10" cy="4" r="1.5" />
-                            <circle cx="10" cy="10" r="1.5" />
-                            <circle cx="10" cy="16" r="1.5" />
-                          </svg>
-                        </button>
-                        {openMenuId === row.orden_trabajo && (
-                          <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-20 py-1">
-                            <button
-                              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                              onClick={() => { setOrdenEfectivaId(row.orden_trabajo); setOpenMenuId(null); }}
-                            >
-                              <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                              Marcar Efectiva
-                            </button>
-                            <button
-                              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                              onClick={() => { handleCancelarOrden(row.orden_trabajo); setOpenMenuId(null); }}
-                            >
-                              <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                              Cancelar orden
-                            </button>
-                            <div className="border-t border-gray-100 my-1" />
-                            <button
-                              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                              onClick={() => { handleDeleteOrdenes([row.orden_trabajo]); setOpenMenuId(null); }}
-                              disabled={isDeleting}
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                              Eliminar de la base de datos
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                          <button
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            onClick={() => { setOrdenEfectivaId(row.orden_trabajo); setOpenMenuId(null); setMenuPosition(null); }}
+                          >
+                            <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                            Marcar Efectiva
+                          </button>
+                          <button
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            onClick={() => { handleCancelarOrden(row.orden_trabajo); setOpenMenuId(null); setMenuPosition(null); }}
+                          >
+                            <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            Cancelar orden
+                          </button>
+                          <div className="border-t border-gray-100 my-1" />
+                          <button
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                            onClick={() => { handleDeleteOrdenes([row.orden_trabajo]); setOpenMenuId(null); setMenuPosition(null); }}
+                            disabled={isDeleting}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            Eliminar de la base de datos
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))
