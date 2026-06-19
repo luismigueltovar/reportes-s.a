@@ -307,6 +307,7 @@ export default function DespachoTableClient() {
     setIsSubiendoEfectiva(true);
     setErrorEfectiva(null);
     try {
+      const urlsSubidas: string[] = [];
       for (let index = 0; index < fotosEfectiva.length; index++) {
         const file = fotosEfectiva[index];
         const path = `${ordenTrabajo}/evidencia_${index + 1}_${Date.now()}.jpg`;
@@ -318,10 +319,18 @@ export default function DespachoTableClient() {
           setIsSubiendoEfectiva(false);
           return;
         }
+        const { data: publicUrlData } = supabase.storage
+          .from('evidencias')
+          .getPublicUrl(path);
+        urlsSubidas.push(publicUrlData.publicUrl);
       }
       const { error } = await supabase
         .from('ordenes')
-        .update({ estado: 'Efectiva' })
+        .update({
+          estado: 'Efectiva',
+          urls_fotos: urlsSubidas,
+          fecha_cierre: new Date().toISOString(),
+        })
         .eq('orden_trabajo', ordenTrabajo);
       if (error) {
         setErrorEfectiva(`Error al actualizar la orden: ${error.message}`);
